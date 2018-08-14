@@ -3,6 +3,9 @@
 #include <string.h>
 #include <malloc.h>
 
+#define EDIDFILESIZE    2560
+#define EDIDDATASIZE    1024
+
 //basic EDID index
 #define VEND_PROD_IDENTIFI      0x08
 #define EDIDSTRUCTVERSION       0x12

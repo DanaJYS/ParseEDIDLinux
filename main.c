@@ -26,6 +26,12 @@ int readEDIDFile(char *fileName, char *fileData)
         fclose(fp);
         return 0;
     }
+    if(fileSize >= EDIDFILESIZE)
+    {
+        printf("file size is over %d\n", EDIDFILESIZE);
+        fclose(fp);
+        return 0;
+    }
 
     fseek(fp, 0, SEEK_SET);
     fread(fileData, fileSize, 1, fp);
@@ -53,6 +59,12 @@ int getEDIDData(char *fData, int *edidData)
             if(0 != sscanf(ptok, "%x", &tempData))
             {
                 edidData[edidIndex++] = tempData;
+
+                if(edidIndex >= EDIDDATASIZE)
+                {
+                    printf("EDID data num over %d\n", EDIDDATASIZE);
+                    return 0;
+                }
             }
         }
 
@@ -75,20 +87,26 @@ int getEDIDData(char *fData, int *edidData)
 
 int main(int argc, char *argv[])
 {
-    char pStr[2560] = {0,0};
-    int edidData[1024] = {0,0};
+    char pStr[EDIDFILESIZE] = {0,0};
+    int edidData[EDIDDATASIZE] = {0,0};
     int edidSize = 0;
     int fSize = 0;
 
     EDID_STRUCT testEDIDStruct = {0};
+    memset(&testEDIDStruct, 0, sizeof(EDID_STRUCT));
 
     int i = 0;
 
     fSize = readEDIDFile(argv[1], pStr);
+    if(fSize <= 0)
+        return 1;
+    
     pStr[fSize] = '\0';
     printf("fileSize = %d\n", fSize);
 
     edidSize = getEDIDData(pStr, edidData);
+    if(edidSize <= 0)
+        return 1;
     printf("EDID size is %d\n", edidSize);
 
     getEstablishMode(edidData, testEDIDStruct.EstTiming);
@@ -112,26 +130,6 @@ int main(int argc, char *argv[])
 
 	i++;
     }
-
-
-    int     RefreshRate;
-    int     PixelClock;
-    int     xResolution;
-    int     yResolution;
-    int     hBlank;
-    int     hSyncOffset;
-    int     hSyncPulseWidth;
-    int     vBlank;
-    int     vSyncOffset;
-    int     vSyncPulseHeight;
-    int     hImageSize;
-    int     vImageSize;
-    int     hBorder;
-    int     vBorder;
-    int     valid;
-    int     Interlaced;
-    int     vSync;
-    int     hSync;
 
     i = 0;
     printf("\nDetailed mode list:\n");

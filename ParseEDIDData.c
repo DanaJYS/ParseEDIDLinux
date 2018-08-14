@@ -76,7 +76,7 @@ int getEstablishMode(int *edidData, pEDID_BASICTIMING pEstTimings)
 
 	EstModeIndex++;
     }
-
+/*
     for(i = EstModeIndex; i < 17; i++)
     {
         pEstTimings[EstModeIndex].valid = 
@@ -84,7 +84,7 @@ int getEstablishMode(int *edidData, pEDID_BASICTIMING pEstTimings)
 	pEstTimings[EstModeIndex].yResolution = 
 	pEstTimings[EstModeIndex].RefreshRate = 0;
     }
-
+*/
     return EstModeIndex;
 }
 
@@ -123,7 +123,7 @@ int getStandMode(int *edidData, pEDID_BASICTIMING pStandTimings)
 	}
 	StandModeIndex++;
     }
-
+/*
     for(i = StandModeIndex; i < 8; i++)
     {
 	pStandTimings[i].valid =
@@ -131,7 +131,7 @@ int getStandMode(int *edidData, pEDID_BASICTIMING pStandTimings)
 	pStandTimings[i].yResolution =
 	pStandTimings[i].RefreshRate = 0;
     }
-
+*/
     return StandModeIndex;
 }
 
