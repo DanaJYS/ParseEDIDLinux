@@ -29,7 +29,7 @@ CUR_DIR := $(shell pwd)
 
 LD_OPTION = -static
 
-SRCS := main.c ParseEDIDData.c
+SRCS := main.c edid.c
 
 OBJS=$(SRCS:.c=.o)
 

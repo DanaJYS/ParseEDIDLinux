@@ -244,3 +244,203 @@ int getDetailMode(int *edidData, pEDID_DETAILTIMING pDetailTimings)
 
    return DetailModeIndex;
 }
+
+int getHDMIAudioFormat(int *pAudioFormatDataInEDID, PCBIOS_HDMI_AUDIO_INFO pCEAAudioFormat)
+{
+    CBIOS_U32   ulNumOfAudioFormat = 0;
+    CBIOS_U32   PayloadLength = 0;
+    CBIOS_U32   AudioFormatCode = 0;
+    CBIOS_U32   MaxBitRateIndex = 0;
+    CBIOS_U32   j = 0;
+    
+    //decode short video descriptor
+    PayloadLength = pAudioFormatDataInEDID[0] & 0x1F;
+
+    for (j = 0; j < PayloadLength/3; j++)
+    {
+        AudioFormatCode = (pAudioFormatDataInEDID[1 + j * 3] >> 3) & 0xF;
+        if ((AudioFormatCode > 0) && (AudioFormatCode < 16))
+        {
+            if (AudioFormatCode < 15)
+            {
+                pCEAAudioFormat[ulNumOfAudioFormat].Format = AudioFormatCode;
+            }
+
+            pCEAAudioFormat[ulNumOfAudioFormat].MaxChannelNum = (pAudioFormatDataInEDID[1 + j * 3] & 0x7) + 1;
+            pCEAAudioFormat[ulNumOfAudioFormat].SampleRateUnit = pAudioFormatDataInEDID[2 + j * 3] & 0x7F;
+            if (AudioFormatCode == 1)
+            {
+                pCEAAudioFormat[ulNumOfAudioFormat].BitDepth.BD_16bit = pAudioFormatDataInEDID[3 + j * 3] & 0x1;
+                pCEAAudioFormat[ulNumOfAudioFormat].BitDepth.BD_20bit = (pAudioFormatDataInEDID[3 + j * 3] >> 1) & 0x1;
+                pCEAAudioFormat[ulNumOfAudioFormat].BitDepth.BD_24bit = (pAudioFormatDataInEDID[3 + j * 3] >> 2) & 0x1;
+            }
+            else if (AudioFormatCode <= 8)
+            {
+                MaxBitRateIndex = pAudioFormatDataInEDID[3 + j * 3];
+                pCEAAudioFormat[ulNumOfAudioFormat].MaxBitRate = MaxBitRateIndex * 8;
+            }
+            else if (AudioFormatCode <= 13)
+            {
+                pCEAAudioFormat[ulNumOfAudioFormat].AudioFormatDependValue = pAudioFormatDataInEDID[3 + j * 3];
+            }
+            else if (AudioFormatCode == 14)
+            {
+                pCEAAudioFormat[ulNumOfAudioFormat].Profile.Value = pAudioFormatDataInEDID[3 + j * 3] & 0x7;
+            }
+            else
+            {
+                if (((pAudioFormatDataInEDID[3 + j * 3] >> 3) & 0x1F) == 1)
+                {
+                    pCEAAudioFormat[ulNumOfAudioFormat].Format = CBIOS_AUDIO_FORMAT_HE_AAC;
+                }
+                else if(((pAudioFormatDataInEDID[3 + j * 3] >> 3) & 0x1F) == 2)
+                {
+                    pCEAAudioFormat[ulNumOfAudioFormat].Format = CBIOS_AUDIO_FORMAT_HE_AAC_V2;
+                }
+                else if(((pAudioFormatDataInEDID[3 + j * 3] >> 3) & 0x1F) == 3)
+                {
+                    pCEAAudioFormat[ulNumOfAudioFormat].Format = CBIOS_AUDIO_FORMAT_MPEG_SURROUND;
+                }
+            }
+
+            ulNumOfAudioFormat++;
+        }
+    }
+
+    return ulNumOfAudioFormat;
+}
+
+int getCEA861Info(int *pEDID, EDID_STRUCT *pEDIDStruct)
+{
+    unsigned int   TotalBlocks = 0, BlockIndex = 0;
+    int    *pEDIDBlock;
+    int    DetailedTimingOffset = 0, SVDDataOffset = 0;
+    int    AudioFormatDataOffset = 0;
+    int   PayloadLength = 0;
+    int   i = 0;
+    int   ulModeNumOfCEABlock = 0;
+    int    ExtDataBlockCnt = 0;
+
+    TotalBlocks = pEDID[0x7E] + 1; // Ext. blocks plus base block.
+    if (TotalBlocks > MAX_EDID_BLOCK_NUM)
+    {
+        // TBD: support for more than 4 blocks
+        printf("support for more than 4 blocks\n");
+
+        TotalBlocks = MAX_EDID_BLOCK_NUM;
+    }
+
+    //parse extension blocks
+    for (BlockIndex = 1; BlockIndex < TotalBlocks; BlockIndex++)
+    {
+        pEDIDBlock = pEDID + BlockIndex * 128;
+
+        //check CEA Tag
+        if (pEDIDBlock[0x00] != CEA_TAG)
+        {
+            continue;
+        }
+
+        // Check CEA861 Version.
+        if (pEDIDBlock[0x01] == 0x00)
+        {
+            printf("EDID block%d indicates invalid CEA861 block version!\n", BlockIndex);
+        }
+
+        DetailedTimingOffset = pEDIDBlock[0x02];
+        if (DetailedTimingOffset == 0)
+        {
+            //no detailed timing block, no reserved data block
+            continue;
+        }
+
+        //parse data blocks
+        pEDIDStruct->TotalHDMIAudioFormatNum = 0;
+        for (i = 4; i < DetailedTimingOffset;)
+        {
+            if (((pEDIDBlock[i] >> 5) & 0x07) == AUDIO_DATA_BLOCK_TAG)
+            {
+                //audio data block
+                AudioFormatDataOffset = i;
+                PayloadLength = pEDIDBlock[i++] & 0x1F;
+                pEDIDStruct->TotalHDMIAudioFormatNum += cbEDIDModule_GetHDMIAudioFormat(&pEDIDBlock[AudioFormatDataOffset],
+                    &pEDIDStruct->HDMIAudioFormat[pEDIDStruct->TotalHDMIAudioFormatNum]);
+                i += PayloadLength;
+            }        
+            else if (((pEDIDBlock[i] >> 5) & 0x07) == VIDEO_DATA_BLOCK_TAG)
+            {
+                //decode short video descriptor
+                SVDDataOffset = (CBIOS_U8)i;
+                PayloadLength = pEDIDBlock[i++] & 0x1F;
+                ulModeNumOfCEABlock += cbEDIDModule_GetSVDMode(&pEDIDBlock[SVDDataOffset], pEDIDStruct, BlockIndex);
+                i += PayloadLength;
+            }
+            else if ((((pEDIDBlock[i] >> 5) & 0x07) == VENDOR_SPECIFIC_DATA_BLOCK_TAG))//now consider HDMI VSDB and HDMI Forum VSDB only, ignore other VSDBs
+            {
+                if((pEDIDBlock[i + 1] == 0x03) && 
+                   (pEDIDBlock[i + 2] == 0x0c) && 
+                   (pEDIDBlock[i + 3] == 0x00))
+                {
+                    i += cbEDIDModule_ParseHDMIVSDB(&pEDIDBlock[i], &(pEDIDStruct->Attribute.VSDBData));
+                }
+                else if((pEDIDBlock[i + 1] == 0xD8) && 
+                        (pEDIDBlock[i + 2] == 0x5D) && 
+                        (pEDIDBlock[i + 3] == 0xC4))
+                {
+                    i += cbEDIDModule_ParseHFVSDB(&pEDIDBlock[i], &(pEDIDStruct->Attribute.HFVSDBData));
+                }
+                else
+                {
+                    PayloadLength = pEDIDBlock[i++] & 0x1F;
+                    i += PayloadLength;
+                }
+                
+            }
+            else if (((pEDIDBlock[i] >> 5) & 0x07) == SPEAKER_ALLOCATION_DATA_BLOCK_TAG)
+            {
+                //This payload is preceded by a Tag Code Byte that includes a tag equal to 4 and a length of 3
+                i += 4;
+            }
+            else if (((pEDIDBlock[i] >> 5) & 0x07) == CEA_EXTENDED_BLOCK_TAG)
+            {
+                i += cbEDIDModule_ParseCEAExtBlock(&pEDIDBlock[i], pEDIDStruct, BlockIndex);
+            }
+            else
+            {
+                PayloadLength = pEDIDBlock[i++] & 0x1F;
+                i += PayloadLength;
+            }
+        }
+    }
+    
+    // get the detailed timing in CEA extension
+    ulModeNumOfCEABlock += cbEDIDModule_GetCEADetailedMode(pEDID, pEDIDStruct->DTDTimings);
+
+    // get the 3D video mandatory formats
+    if (pEDIDStruct->Attribute.VSDBData.HDMI3DPresent)
+    {
+        ulModeNumOfCEABlock += cbEDIDModule_Get3DFormat(&pEDIDBlock[SVDDataOffset], 
+                                                        &(pEDIDStruct->Attribute.VSDBData), 
+                                                        pEDIDStruct->HDMIFormat);
+    }
+
+    // get HDMI VIC mode
+    ulModeNumOfCEABlock += cbEDIDModule_GetHDMIVICMode(&(pEDIDStruct->Attribute.VSDBData), 
+                                                       pEDIDStruct->HDMIFormat);
+
+    //check if modes support YCbCr420 but not listed in svd exist. if so, add it
+    for(i=0; i<CBIOS_HDMIFORMATCOUNTS; i++)
+    {
+        if(pEDIDStruct->HDMIFormat[i].IsSupportYCbCr420 && (!pEDIDStruct->HDMIFormat[i].IsSupported))
+        {
+            pEDIDStruct->HDMIFormat[i].IsSupported=CBIOS_TRUE;
+            pEDIDStruct->HDMIFormat[i].BlockIndex = (CBIOS_U8)0;
+            pEDIDStruct->HDMIFormat[i].IsNative = CBIOS_FALSE;
+            pEDIDStruct->HDMIFormat[i].RefreshIndex= CEAVideoFormatTable[i].DefaultRefRateIndex;
+            ulModeNumOfCEABlock++;
+        }
+    }
+
+    return ulModeNumOfCEABlock;    
+
+}

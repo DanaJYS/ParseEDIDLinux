@@ -1,4 +1,5 @@
 #include "common.h"
+#include "edid.h"
 
 int readEDIDFile(char *fileName, char *fileData)
 {
@@ -43,12 +44,12 @@ int readEDIDFile(char *fileName, char *fileData)
     return fileSize;
 }
 
-int getEDIDData(char *fData, int *edidData)
+int getEDIDData(char *fData, unsigned char *edidData)
 {
     char *ptok = NULL;
     char delim[] = "[ ],\r\n";
     int edidIndex = 0;
-    int tempData = 0;
+    unsigned int tempData = 0;
     int i = 0;
 
     ptok = strtok(fData, delim);
@@ -58,7 +59,7 @@ int getEDIDData(char *fData, int *edidData)
         {
             if(0 != sscanf(ptok, "%x", &tempData))
             {
-                edidData[edidIndex++] = tempData;
+                edidData[edidIndex++] = (unsigned char)tempData;
 
                 if(edidIndex >= EDIDDATASIZE)
                 {
@@ -88,29 +89,32 @@ int getEDIDData(char *fData, int *edidData)
 int main(int argc, char *argv[])
 {
     char pStr[EDIDFILESIZE] = {0,0};
-    int edidData[EDIDDATASIZE] = {0,0};
+    unsigned char edidData[EDIDDATASIZE] = {0,0};
     int edidSize = 0;
     int fSize = 0;
 
-    EDID_STRUCT testEDIDStruct = {0};
-    memset(&testEDIDStruct, 0, sizeof(EDID_STRUCT));
+    //EDID_STRUCT testEDIDStruct = {0};
+    //memset(&testEDIDStruct, 0, sizeof(EDID_STRUCT));
 
     int i = 0;
 
     fSize = readEDIDFile(argv[1], pStr);
     if(fSize <= 0)
-        return 1;
+        return 0;
     
     pStr[fSize] = '\0';
     printf("fileSize = %d\n", fSize);
 
     edidSize = getEDIDData(pStr, edidData);
     if(edidSize <= 0)
-        return 1;
+        return 0;
     printf("EDID size is %d\n", edidSize);
 
-    getEstablishMode(edidData, testEDIDStruct.EstTiming);
+    DisplayParseEdid(edidData);
+    
 
+    //getEstablishMode(edidData, testEDIDStruct.EstTiming);
+    /*
     printf("\nEstablish mode list:\n");
     while(testEDIDStruct.EstTiming[i].valid)
     {
@@ -159,7 +163,7 @@ int main(int argc, char *argv[])
 
 	i++;
     }
-
+    */
     
     return 1;
 }
