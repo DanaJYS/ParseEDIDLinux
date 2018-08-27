@@ -83,9 +83,9 @@ void DisplayEdidStdTimings(char *pEdidInfo);
 void DisplayEdidDetailedTimings(char *pEdidInfo);
 void DisplayEdidExtFlagandChecksum(char *pEdidInfo);
 void DisplayCEA861(char *pEdidInfo);
-void ParseVIDEO_DATA_BLOCK(char *pEdidInfo,int Length,int * SVD_mode);
+void ParseVIDEO_DATA_BLOCK(char *pEdidInfo,int Length,int * SVD_mode, int *SVD_mode_info);
 void ParseAUDIO_DATA_BLOCK(char *pEdidInfo,int Length);
 void ParseSpeakerAllocation(char *pEdidInfo, int Length);
-void ParseVSDB(char *pEdidInfo,int Length);
+void ParseVSDB(char *pEdidInfo, int Length, int *SVD_mode, int *SVD_mode_num);
 void ParseDetailedTiming(char *pEdidInfo,int Offset);
 

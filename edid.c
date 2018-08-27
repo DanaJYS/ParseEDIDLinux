@@ -891,15 +891,17 @@ According to CEA-861-F:
     return bRet;
 }
 
-void PrintCEAModeInfo(int FormatIndex)
+void PrintCEAModeInfo(int FormatIndex, char *otherStr)
 {
 	if(CEAVideoFormatTable[FormatIndex-1].Interlace == 1)
 	{
-		printf("vic:%3d %4d x %4di	@  %.0fHz",FormatIndex,CEAVideoFormatTable[FormatIndex-1].XRes,CEAVideoFormatTable[FormatIndex-1].YRes,(float)CEAVideoFormatTable[FormatIndex-1].RefRate[0]/100);
+		printf("vic:%3d %4d x %4di	@  %.0fHz",FormatIndex,CEAVideoFormatTable[FormatIndex-1].XRes,
+			CEAVideoFormatTable[FormatIndex-1].YRes,(float)CEAVideoFormatTable[FormatIndex-1].RefRate[0]/100);
 	}
 	else 
 	{
-		printf("vic:%3d %4d x %4dp	@  %.0fHz",FormatIndex,CEAVideoFormatTable[FormatIndex-1].XRes,CEAVideoFormatTable[FormatIndex-1].YRes,(float)CEAVideoFormatTable[FormatIndex-1].RefRate[0]/100);
+		printf("vic:%3d %4d x %4dp	@  %.0fHz",FormatIndex,CEAVideoFormatTable[FormatIndex-1].XRes,
+			CEAVideoFormatTable[FormatIndex-1].YRes,(float)CEAVideoFormatTable[FormatIndex-1].RefRate[0]/100);
 	}
 	if(CEAVideoFormatTable[FormatIndex-1].AspectRatio == 0)
 	{
@@ -917,7 +919,8 @@ void PrintCEAModeInfo(int FormatIndex)
 	{
 		printf("  256:135");
 	}
-	printf("\n");
+
+	printf("   %s\n", otherStr);
 
 }
 
@@ -935,6 +938,7 @@ void DisplayCEA861(char *pEdidInfo)
     int status = 0;
     int FormatIndex = 0;
     int SVD_mode[CBIOS_HDMI_NORMAL_VIC_COUNTS] = {0};
+    int SVD_mode_num = 0;
     int SVD_num = 0;
 
     if(TotalBlocks > MAX_EDID_BLOCK_NUM)
@@ -1012,7 +1016,7 @@ void DisplayCEA861(char *pEdidInfo)
                 Len = pEdid[i++] & 0x1F;
                 pEdid2 = pEdid + i;
 
-                ParseVIDEO_DATA_BLOCK(pEdid2,Len, SVD_mode);
+                ParseVIDEO_DATA_BLOCK(pEdid2,Len, SVD_mode, &SVD_mode_num);
                 SVD_num = Len;
                 printf("-------------------------------------\n");
                 i += Len;
@@ -1027,7 +1031,7 @@ void DisplayCEA861(char *pEdidInfo)
                 Len = pEdid[i++] & 0x1F;
                 pEdid2 = pEdid + i;
 
-                ParseVSDB(pEdid2,Len);
+                ParseVSDB(pEdid2, Len, SVD_mode, &SVD_mode_num);
 
                 printf("-------------------------------------\n");
                 i += Len;
@@ -1060,7 +1064,7 @@ void DisplayCEA861(char *pEdidInfo)
 				        {
 				            continue;
 				        }                    
-						PrintCEAModeInfo(FormatIndex);						
+						PrintCEAModeInfo(FormatIndex, "");						
 						
 				    }
 					printf("-------------------------------------\n");
@@ -1094,7 +1098,7 @@ void DisplayCEA861(char *pEdidInfo)
 				                    {
 				                        continue;
 				                    }
-                                    PrintCEAModeInfo(FormatIndex);
+                                    PrintCEAModeInfo(FormatIndex, NULL);
 				                }
 				            }
 				            Step += 8;
@@ -1436,7 +1440,7 @@ void ParseAUDIO_DATA_BLOCK(char *pEdidInfo,int Length)
                 umax = umax<<1;
             }
             printf("\n");
-            printf("Audio Format Code Dependent Value\n);   //: %d\n",pEdid[j*3+2]);
+            printf("Audio Format Code Dependent Value\n");   //: %d\n",pEdid[j*3+2]);
         }
         else if(AudioFormatCode == 14)
         {
@@ -1524,12 +1528,15 @@ void ParseSpeakerAllocation(char *pEdidInfo, int Length)
     }
 }
 
-void ParseVSDB(char *pEdidInfo,int Length)
+void ParseVSDB(char *pEdidInfo, int Length, int *SVD_mode, int *SVD_mode_num)
 {
     int j = 0, Len = Length;
-    char *pEdid = pEdidInfo;
+    unsigned char *pEdid = pEdidInfo;
+    unsigned int FormatIndex = 0;
     int videoPayLoad = 0;
     int ThreeDPayLoad = 0;
+    int ThreeDPos = 0;
+    int video_present = 0;
     int VicLen = 0, ThreeDLen = 0;
     int ThreeD_Present = 0, ThreeD_Multi_present = 0;
     printf("IEEE Registration Number:     0x%02X%02X%02X\n",pEdid[2],pEdid[1],pEdid[0]);
@@ -1603,9 +1610,11 @@ void ParseVSDB(char *pEdidInfo,int Length)
 
     if(Len >= 8)
     {
+    	videoPayLoad++;
         //Latency_Fields_Present
         if(pEdid[7]&0x80)
         {
+            videoPayLoad += 2;
             //Video Latency
             if(pEdid[8] == 0)
             {
@@ -1632,11 +1641,11 @@ void ParseVSDB(char *pEdidInfo,int Length)
             {
                 printf("Audio_Latency:                  %d ms\n", 2*(pEdid[9]-1));
             }
-            videoPayLoad += 3;
 
             //I_Latency_Fields_Present
             if(pEdid[7] & 0x40)
             {
+                videoPayLoad += 2;
                 //Interlaced_Video_Latency
                 if(pEdid[10] == 0)
                 {
@@ -1663,8 +1672,13 @@ void ParseVSDB(char *pEdidInfo,int Length)
                 {
                     printf("Interlaced_Audio_Latency:                  %d ms\n", 2*(pEdid[11]-1));
                 }
-                videoPayLoad += 2;
             }
+        }
+
+	 //HDMI_Video_present
+        if(pEdid[7] & 0x20)
+        {  
+	     video_present = 1;
         }
 
         //supported content type
@@ -1691,31 +1705,121 @@ void ParseVSDB(char *pEdidInfo,int Length)
 
             printf("\n");
         }
-        
-        //HDMI_Video_present
-        if(pEdid[7] & 0x20)
-        {   
-            videoPayLoad += 1;
-            VicLen = (pEdid[videoPayLoad + 1] & 0xE0) >> 5;
-            ThreeDLen = pEdid[videoPayLoad + 1] & 0x1F;
-
-            ThreeD_Present = pEdid[videoPayLoad] & 0x80;
-            ThreeD_Multi_present = (pEdid[videoPayLoad] & 0x60) >> 5;
-
-            
-        }
     }
     else
     {
         return;
     }
 
+    if(video_present)
+    {
+    	 videoPayLoad += 1;
+	 printf("VSDB image size:				%x\n", (pEdid[videoPayLoad] >> 3) & 0x03);	
+
+	 ThreeD_Present = (pEdid[videoPayLoad] >> 7) & 0x01;
+        ThreeD_Multi_present = (pEdid[videoPayLoad] >> 5) & 0x03;
+            
+        VicLen = (pEdid[videoPayLoad + 1] >> 5) & 0x07;
+        ThreeDLen = pEdid[videoPayLoad + 1] & 0x1F;
+	 ThreeDPayLoad = videoPayLoad + 1 + VicLen + 1;
+	 ThreeDPos = ThreeDPayLoad;
+            
+	 if(VicLen > 0)
+	 {
+	     printf("VSDB mode list:\n");
+            for(j = 0; j < VicLen; j++)
+            {
+                FormatIndex = pEdid[videoPayLoad + 2 + j] + CBIOS_HDMI_NORMAL_VIC_COUNTS;
+		  SVD_mode[*SVD_mode_num] = FormatIndex;
+		  (*SVD_mode_num)++;
+		  PrintCEAModeInfo(FormatIndex, "");
+            }
+	 }
+
+	 if(ThreeD_Present)
+	 {
+	 	printf("3D mode list:\n");
+		if(ThreeD_Multi_present == 1 || ThreeD_Multi_present == 2)
+		{
+			char ThreeD_struct[256] = "";
+			unsigned short treedStruct = *(unsigned short *)(&pEdid[ThreeDPayLoad]);
+			if(treedStruct & 0x0001)
+			{
+				strcat(ThreeD_struct, "Frame packing/");
+			}
+			if(treedStruct & 0x0040)
+			{
+				strcat(ThreeD_struct, "Top-and-Bottom/");
+			}
+			if(treedStruct & 0x0100)
+			{
+				strcat(ThreeD_struct, "Side-by-Side(half)");
+			}
+			ThreeDPayLoad += 2;
+
+			if(ThreeD_Multi_present == 1)
+			{
+				for(j = 0; j < 16 && j < *SVD_mode_num; j++)
+				{
+					FormatIndex = SVD_mode[j];
+					PrintCEAModeInfo(FormatIndex, ThreeD_struct);
+				}
+			}
+			else if(ThreeD_Multi_present == 2)
+			{
+				unsigned int umax = 0x01;
+				for(j = 0; j < 16; j++)
+				{
+					if(pEdid[ThreeDPayLoad] & umax)
+					{
+						FormatIndex = SVD_mode[j];
+						PrintCEAModeInfo(FormatIndex, ThreeD_struct);
+					}
+					umax = umax << 1;
+				}
+				ThreeDPayLoad += 2;
+			}
+		}
+
+			//printf("ThreeDPayLoad - ThreeDPos = %d, ThreeDLen = %d\n", ThreeDPayLoad - ThreeDPos, ThreeDLen);
+		if(ThreeDPayLoad - ThreeDPos < ThreeDLen)
+		{
+			unsigned int vicOrder = 0, vic3DStruct = 0;
+			char *vic3DStructName = "";
+			for(j = ThreeDPayLoad; j < Len; j++)
+			{
+				vicOrder = (pEdid[ThreeDPayLoad] >> 4) & 0x0F;
+				vic3DStruct = pEdid[ThreeDPayLoad] & 0x0F;
+
+				if(vic3DStruct == 0)
+				{
+					vic3DStructName = "Frame packing";
+				}
+				else if(vic3DStruct == 6)
+				{
+					vic3DStructName = "Top-and-Bottom";
+				}
+				else if(vic3DStruct == 8)
+				{
+					vic3DStructName = "Side-by-Side(half)";
+				}
+				FormatIndex = SVD_mode[vicOrder];
+				PrintCEAModeInfo(FormatIndex, vic3DStructName);
+				
+				j += 2;
+			}
+		}
+	 }
+	  
+    }
+
 }
-void ParseVIDEO_DATA_BLOCK(char *pEdidInfo,int Length, int * SVD_mode)
+void ParseVIDEO_DATA_BLOCK(char *pEdidInfo,int Length, int * SVD_mode, int *SVD_mode_num)
 {
     int j = 0, Len = Length;
     int FormatIndex = 0;
     int isNative = 0;
+    char *strNative = "";
     unsigned char *pEdid = pEdidInfo;
     for(j = 0; j < Len; j++)
     {
@@ -1732,7 +1836,20 @@ void ParseVIDEO_DATA_BLOCK(char *pEdidInfo,int Length, int * SVD_mode)
         }
 
 	SVD_mode[j] = FormatIndex;
+	(*SVD_mode_num)++;
 
+	 if(isNative)
+        {
+            strNative = "Native";
+        }
+	 else
+	 {
+	     strNative = "";
+	 }
+
+	PrintCEAModeInfo(FormatIndex, strNative);
+
+/*
         if(CEAVideoFormatTable[FormatIndex-1].Interlace == 1)
         {
             printf("vic:%3d %4d x %4di  @  %.0fHz",FormatIndex,CEAVideoFormatTable[FormatIndex-1].XRes,
@@ -1765,6 +1882,7 @@ void ParseVIDEO_DATA_BLOCK(char *pEdidInfo,int Length, int * SVD_mode)
             printf("    Native");
         }
         printf("\n");
+*/
     }
     printf("NB: NTSC refresh rate = (Hz*1000)/1001\n");
 }
