@@ -85,6 +85,7 @@ void DisplayEdidExtFlagandChecksum(char *pEdidInfo);
 void DisplayCEA861(char *pEdidInfo);
 void ParseVIDEO_DATA_BLOCK(char *pEdidInfo,int Length,int * SVD_mode);
 void ParseAUDIO_DATA_BLOCK(char *pEdidInfo,int Length);
+void ParseSpeakerAllocation(char *pEdidInfo, int Length);
 void ParseVSDB(char *pEdidInfo,int Length);
 void ParseDetailedTiming(char *pEdidInfo,int Offset);
 

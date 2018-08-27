@@ -930,12 +930,12 @@ void DisplayCEA861(char *pEdidInfo)
     int DetailedTimingOffset = 0;
     char *pEdid,*pEdid2;
     int Len = 0;
-	int ExtTag = 0;
-	int SVD = 0;
-	int status = 0;
-	int FormatIndex = 0;
-	int SVD_mode[CBIOS_HDMI_NORMAL_VIC_COUNTS] = {0};
-	int SVD_num = 0;
+    int ExtTag = 0;
+    int SVD = 0;
+    int status = 0;
+    int FormatIndex = 0;
+    int SVD_mode[CBIOS_HDMI_NORMAL_VIC_COUNTS] = {0};
+    int SVD_num = 0;
 
     if(TotalBlocks > MAX_EDID_BLOCK_NUM)
     {
@@ -1036,71 +1036,9 @@ void DisplayCEA861(char *pEdidInfo)
             {
                 printf("<---CE Speaker Allocation Data--->\n");
                 Len = pEdid[i++] & 0x1F;
-            
-                if(pEdid[i] & 0x01)
-                {
-                    printf("Front Left/Right              YES\n");
-                }
-                else 
-                {
-                    printf("Front Left/Right              NO\n");
-                }
-                if(pEdid[i] & 0x02)
-                {
-                    printf("Front LFE                     YES\n");
-                }
-                else 
-                {
-                    printf("Front LFE                     NO\n");
-                }
-                if(pEdid[i] & 0x04)
-                {
-                    printf("Front Center                  YES\n");
-                }
-                else 
-                {
-                    printf("Front Center                  NO\n");
-                }
-                if(pEdid[i] & 0x08)
-                {
-                    printf("Rear Left/Right               YES\n");
-                }
-                else 
-                {
-                    printf("Rear Left/Right               NO\n");
-                }
-                if(pEdid[i] & 0x10)
-                {
-                    printf("Rear Center                   YES\n");
-                }
-                else 
-                {
-                    printf("Rear Center                   NO\n");
-                }
-                if(pEdid[i] & 0x20)
-                {
-                    printf("Front Left/Right Center       YES\n");
-                }
-                else 
-                {
-                    printf("Front Left/Right Center       NO\n");
-                }
-                if(pEdid[i] & 0x40)
-                {
-                    printf("Rear Left/Right Center        YES\n");
-                }
-                else 
-                {
-                    printf("Rear Left/Right Center        NO\n");
-                }
-                if(pEdid[i] & 0x80)
-                {
-                    printf("Rear LFE                      YES\n");
-                }
-                else 
-                {
-                    printf("Rear LFE                      NO\n");
-                }
+                pEdid2 = pEdid + i;
+
+                ParseSpeakerAllocation(pEdid2, Len);
 
                 printf("-------------------------------------\n");
                 i += Len;
@@ -1425,53 +1363,28 @@ void ParseAUDIO_DATA_BLOCK(char *pEdidInfo,int Length)
     int AudioFormatCode = 0;
     int MaxChannelNum = 0;
     int umax;
-    int Freq[8]={0,192,176,96,88,48,44,32}; 
+    float Freq[8] = {32, 44.1, 48, 88.2, 96, 176.4, 192, 0};
+    char *AudioFormatName[] = {"Refer to Stream Header", "L-PCM", "AC-3", "MPEG-1", "MP3","MPEG2", "AAC LC", "DTS", "ATRAC", 
+        "One Bit Audio", "Enhanced AC-3","DTS-HD", "MAT", "DST", "WMA Pro", "Refer to Audio Coding Extension Type(CXT) field in Data Byte 3"};
 
     for(j = 0; j < Len/3; j++)
     {
         AudioFormatCode = (pEdid[j*3]>>3)&0x0F;
         MaxChannelNum = (pEdid[j*3]&0x07)+1;
 
+        printf("Audio Format:                 %s\n", AudioFormatName[AudioFormatCode]);
         printf("Channel Num:                  %d\n",MaxChannelNum);
 
         if(AudioFormatCode == 1)
         {
             printf("Supported Freq:               ");
-/*          if(pEdid[j*3+1] & 0x01)
-            {
-                printf("%d ",Freq[7]);
-            }
-            if(pEdid[j*3+1] & 0x02)
-            {
-                printf("%d ",Freq[6]);
-            }
-            if(pEdid[j*3+1] & 0x04)
-            {
-                printf("%d ",Freq[5]);
-            }
-            if(pEdid[j*3+1] & 0x08)
-            {
-                printf("%d ",Freq[4]);
-            }
-            if(pEdid[j*3+1] & 0x10)
-            {
-                printf("%d ",Freq[3]);
-            }
-            if(pEdid[j*3+1] & 0x20)
-            {
-                printf("%d ",Freq[2]);
-            }
-            if(pEdid[j*3+1] & 0x40)
-            {
-                printf("%d ",Freq[1]);
-            }
-*/
+
             umax = 0x01;
-            for(i = 7; i > 0; i--)
+            for(i = 0; i < 8; i++)
             {
                 if(pEdid[j*3+1] & umax)
                 {
-                    printf("%d ",Freq[i]);
+                    printf("%.1f kHz, ",Freq[i]);
                 }
                 umax = umax<<1;
             }
@@ -1481,56 +1394,28 @@ void ParseAUDIO_DATA_BLOCK(char *pEdidInfo,int Length)
 
             if(pEdid[j*3+2] & 0x01)
             {
-                printf("%d ",16);
+                printf("%d bit, ",16);
             }
             if(pEdid[j*3+2] & 0x02)
             {
-                printf("%d ",20);
+                printf("%d bit, ",20);
             }
             if(pEdid[j*3+2] & 0x04)
             {
-                printf("%d ",24);
+                printf("%d bit, ",24);
             }
             printf("\n");                   
         }
         else if(AudioFormatCode >= 2 && AudioFormatCode <= 8)
         {
             printf("Supported Freq:               ");
-/*          if(pEdid[j*3+1] & 0x01)
-            {
-                printf("%d ",Freq[7]);
-            }
-            if(pEdid[j*3+1] & 0x02)
-            {
-                printf("%d ",Freq[6]);
-            }
-            if(pEdid[j*3+1] & 0x04)
-            {
-                printf("%d ",Freq[5]);
-            }
-            if(pEdid[j*3+1] & 0x08)
-            {
-                printf("%d ",Freq[4]);
-            }
-            if(pEdid[j*3+1] & 0x10)
-            {
-                printf("%d ",Freq[3]);
-            }
-            if(pEdid[j*3+1] & 0x20)
-            {
-                printf("%d ",Freq[2]);
-            }
-            if(pEdid[j*3+1] & 0x40)
-            {
-                printf("%d ",Freq[1]);
-            }
-*/
+
             umax = 0x01;
-            for(i = 7; i > 0; i--)
+            for(i = 0; i < 8; i++)
             {
                 if(pEdid[j*3+1] & umax)
                 {
-                    printf("%d ",Freq[i]);
+                    printf("%.1f kHz, ",Freq[i]);
                 }
                 umax = umax<<1;
             }
@@ -1540,85 +1425,29 @@ void ParseAUDIO_DATA_BLOCK(char *pEdidInfo,int Length)
         else if(AudioFormatCode >= 9 && AudioFormatCode <= 13)
         {
             printf("Supported Freq:               ");
-/*          if(pEdid[j*3+1] & 0x01)
-            {
-                printf("%d ",Freq[7]);
-            }
-            if(pEdid[j*3+1] & 0x02)
-            {
-                printf("%d ",Freq[6]);
-            }
-            if(pEdid[j*3+1] & 0x04)
-            {
-                printf("%d ",Freq[5]);
-            }
-            if(pEdid[j*3+1] & 0x08)
-            {
-                printf("%d ",Freq[4]);
-            }
-            if(pEdid[j*3+1] & 0x10)
-            {
-                printf("%d ",Freq[3]);
-            }
-            if(pEdid[j*3+1] & 0x20)
-            {
-                printf("%d ",Freq[2]);
-            }
-            if(pEdid[j*3+1] & 0x40)
-            {
-                printf("%d ",Freq[1]);
-            }
-*/
+
             umax = 0x01;
-            for(i = 7; i > 0; i--)
+            for(i = 0; i < 8; i++)
             {
                 if(pEdid[j*3+1] & umax)
                 {
-                    printf("%d ",Freq[i]);
+                    printf("%.1f kHz, ",Freq[i]);
                 }
                 umax = umax<<1;
             }
             printf("\n");
-            printf("Audio Format Code Dependent Value: %d\n",pEdid[j*3+2]);
+            printf("Audio Format Code Dependent Value\n);   //: %d\n",pEdid[j*3+2]);
         }
         else if(AudioFormatCode == 14)
         {
             printf("Supported Freq:               ");
-/*          if(pEdid[j*3+1] & 0x01)
-            {
-                printf("%d ",Freq[7]);
-            }
-            if(pEdid[j*3+1] & 0x02)
-            {
-                printf("%d ",Freq[6]);
-            }
-            if(pEdid[j*3+1] & 0x04)
-            {
-                printf("%d ",Freq[5]);
-            }
-            if(pEdid[j*3+1] & 0x08)
-            {
-                printf("%d ",Freq[4]);
-            }
-            if(pEdid[j*3+1] & 0x10)
-            {
-                printf("%d ",Freq[3]);
-            }
-            if(pEdid[j*3+1] & 0x20)
-            {
-                printf("%d ",Freq[2]);
-            }
-            if(pEdid[j*3+1] & 0x40)
-            {
-                printf("%d ",Freq[1]);
-            }
-*/
+
             umax = 0x01;
-            for(i = 7; i > 0; i--)
+            for(i = 0; i < 8; i++)
             {
                 if(pEdid[j*3+1] & umax)
                 {
-                    printf("%d ",Freq[i]);
+                    printf("%.1f kHz, ",Freq[i]);
                 }
                 umax = umax<<1;
             }
@@ -1628,36 +1457,27 @@ void ParseAUDIO_DATA_BLOCK(char *pEdidInfo,int Length)
         else if(AudioFormatCode == 15)
         {
             printf("Supported Freq:               ");
-            if(pEdid[j*3+1] & 0x01)
+
+            umax = 0x01;
+            for(i = 0; i < 8; i++)
             {
-                printf("%d ",Freq[7]);
-            }
-            if(pEdid[j*3+1] & 0x02)
-            {
-                printf("%d ",Freq[6]);
-            }
-            if(pEdid[j*3+1] & 0x04)
-            {
-                printf("%d ",Freq[5]);
-            }
-            if(pEdid[j*3+1] & 0x08)
-            {
-                printf("%d ",Freq[4]);
-            }
-            if(pEdid[j*3+1] & 0x10)
-            {
-                printf("%d ",Freq[3]);
+                if(pEdid[j*3+1] & umax)
+                {
+                    printf("%.1f kHz, ",Freq[i]);
+                }
+                umax = umax<<1;
             }
             printf("\n");
+
             if((pEdid[j*3+2]&0xF8)>=4 && (pEdid[j*3+2]&0xF8) <=6)
             {
                 if(pEdid[j*3+2]&0x02)
                 {
-                    printf("%d",960);
+                    printf("%d_TL",960);
                 }
                 if(pEdid[j*3+2]&0x04)
                 {
-                    printf("%d",1024);
+                    printf("%d_TL",1024);
                 }
                 printf("\n");
             }
@@ -1670,23 +1490,50 @@ void ParseAUDIO_DATA_BLOCK(char *pEdidInfo,int Length)
                 }
                 if(pEdid[j*3+2]&0x02)
                 {
-                    printf("%d",960);
+                    printf("%d_TL",960);
                 }
                 if(pEdid[j*3+2]&0x04)
                 {
-                    printf("%d",1024);
+                    printf("%d_TL",1024);
                 }
                 printf("\n");
             }
         }
     }    
 }
+
+void ParseSpeakerAllocation(char *pEdidInfo, int Length)
+{
+    int j = 0, Len = Length;
+    unsigned char *pEdid = pEdidInfo;
+    unsigned int umax = 0;
+    unsigned short pload = *(unsigned short*)pEdid;
+
+    char *speakerAllocation[] = {"Front Left/Right", "Low Frequency Effect", "Front Center", "Rear Left/Right",
+                            "Rear Center", "Front Left/Right Center", "Rear Left/Right Center", "Front Left/Right Wide",
+                            "Front Left/Right High", "Top Center", "Front Center High"};
+
+    umax = 0x01;
+    for(j = 0; j < 11; j++)
+    {
+        if(pload & umax)
+        {
+            printf("%s\n", speakerAllocation[j]);
+        }
+        umax = umax << 1;
+    }
+}
+
 void ParseVSDB(char *pEdidInfo,int Length)
 {
     int j = 0, Len = Length;
     char *pEdid = pEdidInfo;
+    int videoPayLoad = 0;
+    int ThreeDPayLoad = 0;
+    int VicLen = 0, ThreeDLen = 0;
+    int ThreeD_Present = 0, ThreeD_Multi_present = 0;
     printf("IEEE Registration Number:     0x%02X%02X%02X\n",pEdid[2],pEdid[1],pEdid[0]);
-    printf("CEC Physical Address:         %d.%d.%d.%d\n",(pEdid[3]&0xF0)>>4,pEdid[3]&0x0F,(pEdid[4]&0xF0)>>4,pEdid[4]&0x0F);
+    printf("CEC Physical Address:         %d.%d.%d.%d\n", pEdid[4]&0x0F, (pEdid[4]&0xF0)>>4, pEdid[3]&0x0F, (pEdid[3]&0xF0)>>4);
 
     if(Len >= 6)
     {
@@ -1724,11 +1571,11 @@ void ParseVSDB(char *pEdidInfo,int Length)
         }
         if(pEdid[5] & 0x08)
         {
-            printf("Supports YCbCr 4:4:4          YES\n");
+            printf("Supports YCbCr4:4:4 in deep color         YES\n");
         }
         else 
         {
-            printf("Supports YCbCr 4:4:4          NO\n");
+            printf("Supports YCbCr 4:4:4 in deep color          NO\n");
         }
         if(pEdid[5] & 0x01)
         {
@@ -1739,24 +1586,140 @@ void ParseVSDB(char *pEdidInfo,int Length)
             printf("Supports Dual-link DVI        NO\n");
         }
     }
+    else
+    {
+        return;
+    }
+    
     if(Len >= 7)
     {
         printf("Maxinum TMDS Clock:           %dMHz\n",5*pEdid[6]);
+        videoPayLoad = 6;
     }
-    printf("Data Payload:                 ");
-    for(j = 0; j < Len; j++)
+    else
     {
-        printf("%02X",pEdid[j]);
+        return;
     }
-    printf("\n");
+
+    if(Len >= 8)
+    {
+        //Latency_Fields_Present
+        if(pEdid[7]&0x80)
+        {
+            //Video Latency
+            if(pEdid[8] == 0)
+            {
+                printf("Video_Latency:                  unknown\n");
+            }
+            else if(pEdid[8] == 255)
+            {
+                printf("No video supported in this device or downstream\n");
+            }
+            else
+            {
+                printf("Video_Latency:                  %d ms\n", 2*(pEdid[8]-1));
+            }
+            //Audio Latency
+            if(pEdid[9] == 0)
+            {
+                printf("Audio_Latency:                  unknown\n");
+            }
+            else if(pEdid[9] == 255)
+            {
+                printf("No audio supported in this device or downstream\n");
+            }
+            else
+            {
+                printf("Audio_Latency:                  %d ms\n", 2*(pEdid[9]-1));
+            }
+            videoPayLoad += 3;
+
+            //I_Latency_Fields_Present
+            if(pEdid[7] & 0x40)
+            {
+                //Interlaced_Video_Latency
+                if(pEdid[10] == 0)
+                {
+                    printf("Interlaced_Video_Latency:                  unknown\n");
+                }
+                else if(pEdid[10] == 255)
+                {
+                    printf("No video supported in this device or downstream\n");
+                }
+                else
+                {
+                    printf("Interlaced_Video_Latency:                  %d ms\n", 2*(pEdid[10]-1));
+                }
+                //Interlaced_Audio Latency
+                if(pEdid[11] == 0)
+                {
+                    printf("Interlaced_Audio_Latency:                  unknown\n");
+                }
+                else if(pEdid[11] == 255)
+                {
+                    printf("No audio supported in this device or downstream\n");
+                }
+                else
+                {
+                    printf("Interlaced_Audio_Latency:                  %d ms\n", 2*(pEdid[11]-1));
+                }
+                videoPayLoad += 2;
+            }
+        }
+
+        //supported content type
+        if(pEdid[7] & 0x0F != 0)
+        {
+            printf("Supported content type:                   ");
+
+            if(pEdid[7] & 0x08)
+            {
+                printf("Graphics(text)  ");
+            }
+            if(pEdid[7] & 0x04)
+            {
+                printf("Photo  ");
+            }
+            if(pEdid[7] & 0x02)
+            {
+                printf("Cinema  ");
+            }
+            if(pEdid[7] & 0x01)
+            {
+                printf("Game");
+            }
+
+            printf("\n");
+        }
+        
+        //HDMI_Video_present
+        if(pEdid[7] & 0x20)
+        {   
+            videoPayLoad += 1;
+            VicLen = (pEdid[videoPayLoad + 1] & 0xE0) >> 5;
+            ThreeDLen = pEdid[videoPayLoad + 1] & 0x1F;
+
+            ThreeD_Present = pEdid[videoPayLoad] & 0x80;
+            ThreeD_Multi_present = (pEdid[videoPayLoad] & 0x60) >> 5;
+
+            
+        }
+    }
+    else
+    {
+        return;
+    }
+
 }
 void ParseVIDEO_DATA_BLOCK(char *pEdidInfo,int Length, int * SVD_mode)
 {
     int j = 0, Len = Length;
     int FormatIndex = 0;
-    char *pEdid = pEdidInfo;
+    int isNative = 0;
+    unsigned char *pEdid = pEdidInfo;
     for(j = 0; j < Len; j++)
     {
+        isNative = 0;
         FormatIndex = pEdid[j];
         if(FormatIndex >= 1 && FormatIndex <= 64)
         {
@@ -1765,17 +1728,20 @@ void ParseVIDEO_DATA_BLOCK(char *pEdidInfo,int Length, int * SVD_mode)
         else if(FormatIndex >= 129 && FormatIndex <= 192)
         {
             FormatIndex &= 0x7F;
+            isNative = 1;
         }
 
-		SVD_mode[j] = FormatIndex;
-		
+	SVD_mode[j] = FormatIndex;
+
         if(CEAVideoFormatTable[FormatIndex-1].Interlace == 1)
         {
-            printf("vic:%3d %4d x %4di  @  %.0fHz",FormatIndex,CEAVideoFormatTable[FormatIndex-1].XRes,CEAVideoFormatTable[FormatIndex-1].YRes,(float)CEAVideoFormatTable[FormatIndex-1].RefRate[0]/100);
+            printf("vic:%3d %4d x %4di  @  %.0fHz",FormatIndex,CEAVideoFormatTable[FormatIndex-1].XRes,
+                CEAVideoFormatTable[FormatIndex-1].YRes,(float)CEAVideoFormatTable[FormatIndex-1].RefRate[0]/100);
         }
         else 
         {
-            printf("vic:%3d %4d x %4dp  @  %.0fHz",FormatIndex,CEAVideoFormatTable[FormatIndex-1].XRes,CEAVideoFormatTable[FormatIndex-1].YRes,(float)CEAVideoFormatTable[FormatIndex-1].RefRate[0]/100);
+            printf("vic:%3d %4d x %4dp  @  %.0fHz",FormatIndex,CEAVideoFormatTable[FormatIndex-1].XRes,
+                CEAVideoFormatTable[FormatIndex-1].YRes,(float)CEAVideoFormatTable[FormatIndex-1].RefRate[0]/100);
         }
         if(CEAVideoFormatTable[FormatIndex-1].AspectRatio == 0)
         {
@@ -1792,6 +1758,11 @@ void ParseVIDEO_DATA_BLOCK(char *pEdidInfo,int Length, int * SVD_mode)
         else if(CEAVideoFormatTable[FormatIndex-1].AspectRatio == 3)
         {
             printf("  256:135");
+        }
+
+        if(isNative)
+        {
+            printf("    Native");
         }
         printf("\n");
     }
