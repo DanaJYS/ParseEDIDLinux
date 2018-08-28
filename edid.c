@@ -214,6 +214,42 @@ void DisplayEdidRawData(unsigned char *pEdid)
 }
 */
 
+int IsEDIDValid(unsigned char *pEdid, int Len)
+{
+	int i = 0, j = 0;
+	unsigned char sum = 0;
+	unsigned char edidHeader[] = {0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00};
+	if(pEdid == NULL)
+	{
+		return 0;
+	}
+
+	if((Len%128) != 0)
+	{
+		return 0;
+	}
+
+	if(memcmp(edidHeader, pEdid, 8) != 0)
+	{
+		return 0;
+	}
+
+	for(i = 0; i < Len/128; i++)
+	{
+		sum = 0;
+		for(j = 0; j < 128; j++)
+		{
+			sum += pEdid[i*128 + j];
+		}
+		if(sum != 0x00)
+		{
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
 void DisplayParseEdid(unsigned char *pEdid)
 {  
     char *EdidInfo = (char *)pEdid;

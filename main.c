@@ -29,7 +29,7 @@ int readEDIDFile(char *fileName, char *fileData)
     }
     if(fileSize >= EDIDFILESIZE)
     {
-        printf("file size is over %d\n", EDIDFILESIZE);
+        printf("file size over %d\n", EDIDFILESIZE);
         fclose(fp);
         return 0;
     }
@@ -92,10 +92,6 @@ int main(int argc, char *argv[])
     unsigned char edidData[EDIDDATASIZE] = {0,0};
     int edidSize = 0;
     int fSize = 0;
-
-    //EDID_STRUCT testEDIDStruct = {0};
-    //memset(&testEDIDStruct, 0, sizeof(EDID_STRUCT));
-
     int i = 0;
 
     fSize = readEDIDFile(argv[1], pStr);
@@ -110,60 +106,14 @@ int main(int argc, char *argv[])
         return 0;
     printf("EDID size is %d\n", edidSize);
 
-    DisplayParseEdid(edidData);
-    
-
-    //getEstablishMode(edidData, testEDIDStruct.EstTiming);
-    /*
-    printf("\nEstablish mode list:\n");
-    while(testEDIDStruct.EstTiming[i].valid)
+    if(IsEDIDValid(edidData, edidSize))
     {
-            printf("%dx%d@%d\n", testEDIDStruct.EstTiming[i].xResolution, testEDIDStruct.EstTiming[i].yResolution,
-                testEDIDStruct.EstTiming[i].RefreshRate);   
-
-	i++;
+    	DisplayParseEdid(edidData);
     }
-
-    printf("\nStand mode list:\n");
-    i = 0;
-    getStandMode(edidData, testEDIDStruct.StandTiming);
-    while(testEDIDStruct.StandTiming[i].valid && i < 8)
+    else
     {
-            printf("%dx%d@%d\n", testEDIDStruct.StandTiming[i].xResolution, testEDIDStruct.StandTiming[i].yResolution,
-                testEDIDStruct.StandTiming[i].RefreshRate); 
-
-	i++;
+    	printf("Edid data invalid!\n");
     }
-
-    i = 0;
-    printf("\nDetailed mode list:\n");
-    getDetailMode(edidData, testEDIDStruct.DetailTiming);
-    while(testEDIDStruct.DetailTiming[i].valid && i < 4)
-    {
-        printf("Detaild mode %d:\n", i);
-        printf("PixelClock: %d\n", testEDIDStruct.DetailTiming[i].PixelClock);
-        printf("xResolution: %d\n", testEDIDStruct.DetailTiming[i].xResolution);
-        printf("yResolution: %d\n", testEDIDStruct.DetailTiming[i].yResolution);
-        printf("hBlank: %d\n", testEDIDStruct.DetailTiming[i].hBlank);
-        printf("hSyncOffset: %d\n", testEDIDStruct.DetailTiming[i].hSyncOffset);
-        printf("hSyncPulseWidth: %d\n", testEDIDStruct.DetailTiming[i].hSyncPulseWidth);
-        printf("vBlank: %d\n", testEDIDStruct.DetailTiming[i].vBlank);
-        printf("vSyncOffset: %d\n", testEDIDStruct.DetailTiming[i].vSyncOffset);
-        printf("vSyncPulseHeight: %d\n", testEDIDStruct.DetailTiming[i].vSyncPulseHeight);
-        printf("hImageSize: %d\n", testEDIDStruct.DetailTiming[i].hImageSize);
-        printf("vImageSize: %d\n", testEDIDStruct.DetailTiming[i].vImageSize);
-        printf("hBorder: %d\n", testEDIDStruct.DetailTiming[i].hBorder);
-        printf("vBorder: %d\n", testEDIDStruct.DetailTiming[i].vBorder);
-        printf("Interlaced: %d\n", testEDIDStruct.DetailTiming[i].Interlaced);
-        printf("vSync: %d\n", testEDIDStruct.DetailTiming[i].vSync);
-        printf("hSync: %d\n", testEDIDStruct.DetailTiming[i].hSync);
-        printf("RefreshRate: %d\n", testEDIDStruct.DetailTiming[i].RefreshRate);
-        printf("\n");
-        
-
-	i++;
-    }
-    */
-    
+  
     return 1;
 }

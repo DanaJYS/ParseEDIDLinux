@@ -72,6 +72,7 @@ typedef enum _CBIOS_CEA_EXTENDED_BLOCK_TAG
 
 //int  ParseEdid();
 //void DisplayEdidRawData(unsigned char *pEdid);
+int    IsEDIDValid(unsigned char *pEdid, int Len);
 void DisplayParseEdid(unsigned char *pEdid);
 void DisplayEdidHeader(char *pEdidInfo);
 void DisplayEdidVendorIdenti(char *pEdidInfo);
