@@ -544,6 +544,9 @@ void ParseDTLTiming(unsigned char *pEdid, int dtlTimIndex)
     unsigned int HImageSize,VImageSize,HBorder,VBorder;
     int i,j;
 
+    if(pEdid[0] == 0x00 && pEdid[1] == 0x00)
+        return;
+
     Clock = pEdid[1]<<8 | pEdid[0];
     
     HActive = (pEdid[4]>>4)<<8 | pEdid[2];
