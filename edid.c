@@ -380,7 +380,7 @@ void DisplayEdidDisplayParams(char *pEdidInfo)
     }
     else
     {
-        printf("DPMS Support Stand-by:        NO\n");
+        printf("DPMS Support Suspend:         NO\n");
     }
 
     if(pEdid[4]&0x20)
@@ -910,7 +910,7 @@ void PrintCEAModeInfo(int FormatIndex, char *otherStr)
 	}
 	if(CEAVideoFormatTable[FormatIndex-1].AspectRatio == 0)
 	{
-		printf("	4:3");
+		printf("    4:3");
 	}
 	else if(CEAVideoFormatTable[FormatIndex-1].AspectRatio == 1)
 	{
@@ -1027,19 +1027,30 @@ void DisplayCEA861(char *pEdidInfo)
                 i += Len;
 
             }
-            else if((((pEdid[i]>>5) & 0x07) == VENDOR_SPECIFIC_DATA_BLOCK_TAG)
-                    &&(pEdid[i+1] == 0x03)
-                    &&(pEdid[i+2] == 0x0C)
-                    &&(pEdid[i+3] == 0x00))
+            else if(((pEdid[i]>>5) & 0x07) == VENDOR_SPECIFIC_DATA_BLOCK_TAG)
             {
-                printf("<---Vendor-Specific Data Block--->\n");     
-                Len = pEdid[i++] & 0x1F;
-                pEdid2 = pEdid + i;
+                if((pEdid[i+1] == 0x03) && (pEdid[i+2] == 0x0C) && (pEdid[i+3] == 0x00))
+                {
+                    printf("<---Vendor-Specific Data Block--->\n");     
+                    Len = pEdid[i++] & 0x1F;
+                    pEdid2 = pEdid + i;
 
-                ParseVSDB(pEdid2, Len, SVD_mode, &SVD_mode_num);
+                    ParseVSDB(pEdid2, Len, SVD_mode, &SVD_mode_num);
 
-                printf("-------------------------------------\n");
-                i += Len;
+                    printf("-------------------------------------\n");
+                    i += Len;
+                }
+                if((pEdid[i+1] == 0xD8) && (pEdid[i+2] == 0x5D) && (pEdid[i+3] == 0xC4))
+                {
+                    printf("<---HDMI Forum Vendor-Specific Data Block--->\n");     
+                    Len = pEdid[i++] & 0x1F;
+                    pEdid2 = pEdid + i;
+
+                    ParseHFVSDB(pEdid2, Len);
+
+                    printf("------------------------------------------\n");
+                    i += Len;
+                }
             }
             else if(((pEdid[i]>>5) & 0x07) == SPEAKER_ALLOCATION_DATA_BLOCK_TAG)
             {
@@ -1206,11 +1217,93 @@ void DisplayCEA861(char *pEdidInfo)
                         printf("-------------------------------------\n");
                     }
                 }
+                else if(ExtTag == VIDEO_CAPABILITY_DATA_BLOCK_TAG)
+                {
+                    printf("<---Video Capability Data Block----> \n");
+                    for (j = 0; j < Len - 1; j++)
+                    {
+                        printf("%02x ", (unsigned char)pEdid[i + 1 + j]);
+                    }
+                    printf("\n");
+
+                    printf("------------------------------  -\n");
+                }
+                else if(ExtTag == VENDOR_SPECIFIC_VIDEO_DATA_BLOCK_TAG)
+                {
+                    printf("<---Vendor-Specific Video Data Block----> \n");
+                    for (j = 0; j < Len - 1; j++)
+                    {
+                        printf("%02x ", (unsigned char)pEdid[i + 1 + j]);
+                    }
+                    printf("\n");
+
+                    printf("------------------------------  -\n");
+                }
+                else if(ExtTag == VESA_VIDEO_DISPLAY_DEVICE_DATA_BLOCK_TAG)
+                {
+                    printf("<---VESA Display Device Data Block----> \n");
+                    for (j = 0; j < Len - 1; j++)
+                    {
+                        printf("%02x ", (unsigned char)pEdid[i + 1 + j]);
+                    }
+                    printf("\n");
+
+                    printf("----------------------------------- -\n");
+                }
+                else if(ExtTag == RSVD_VESA_VIDEO_TIMING_DATA_BLOCK_TAG)
+                {
+                    printf("<---VESA Video Timing Block Extension----> \n");
+                    for (j = 0; j < Len - 1; j++)
+                    {
+                        printf("%02x ", (unsigned char)pEdid[i + 1 + j]);
+                    }
+                    printf("\n");
+
+                    printf("------------------------------  -\n");
+                }
+                else
+                {
+                    printf("<---Other Extension Data Block----> \n");
+                    printf("%02x ", (unsigned char)ExtTag);
+                    for (j = 0; j < Len - 1; j++)
+                    {
+                        printf("%02x ", (unsigned char)pEdid[i + 1 + j]);
+                    }
+                    printf("\n");
+
+                    printf("------------------------------  -\n");
+                }
+                i += Len;
+            }
+            else if(((pEdid[i]>>5)&0x07) == VESA_DTC_DATA_BLOCK_TAG)
+            {
+                unsigned int j = 0;
+                printf("<---VESA Display Transfer Characteristic Data Block--->\n");     
+                Len = pEdid[i++] & 0x1F;
+
+                for(j = 0; j < Len; j++)
+                {
+                    printf("%02x ", (unsigned char)pEdid[i + j]);
+                }
+                printf("\n");
+
+                printf("-------------------------------------------------\n");
+
                 i += Len;
             }
             else
             {
+                unsigned int j = 0;
+                printf("<---Other Data Block--->\n");     
                 Len = pEdid[i++] & 0x1F;
+                printf("%x ", (unsigned char)pEdid[i - 1]);
+                for(j = 0; j < Len; j++)
+                {
+                    printf("%02x ", (unsigned char)pEdid[i + j]);
+                }
+                printf("\n");
+
+                printf("-------------------------------------------------\n");
     
                 i += Len;
             }
@@ -1395,6 +1488,96 @@ void ParseSpeakerAllocation(char *pEdidInfo, int Length)
             printf("%s\n", speakerAllocation[j]);
         }
         umax = umax << 1;
+    }
+}
+
+void ParseHFVSDB(char *pEdidInfo, int Length)
+{
+    unsigned char *pEdid = pEdidInfo;
+    
+    printf("IEEE Registration Number:                                               0x%02X%02X%02X\n",pEdid[2],pEdid[1],pEdid[0]);
+    printf("HF-VSDB Version:                                                        %d\n", pEdid[3]);
+    printf("Max_TMDS_Character_Rate                                                 %d MHz\n", pEdid[4] * 5);
+
+    if(pEdid[5] & 0x01)
+    {
+        printf("Supports receiving 3D_OSD_Disparity in HF_VSIF                          YES\n");
+    }
+    else
+    {
+        printf("Supports receiving 3D_OSD_Disparity in HF_VSIF                          NO\n");
+    }
+
+    if(pEdid[5] & 0x02)
+    {
+        printf("Supports receiving 3D Dual View signaling in HF_VSIF                    YES\n");
+    }
+    else
+    {
+        printf("Supports receiving 3D Dual View signaling in HF_VSIF                    NO\n");
+    }
+
+    if(pEdid[5] & 0x04)
+    {
+        printf("Supports receiving 3D Independent View signaling in HF_VSIF            YES\n");
+    }
+    else
+    {
+        printf("Supports receiving 3D Independent View signaling in HF_VSIF             NO\n");
+    }
+
+    if(pEdid[5] & 0x08)
+    {
+        printf("Supports scrambling for TMDS Character Rates at or below 340 Mcsc       YES\n");
+    }
+    else
+    {
+        printf("Supports scrambling for TMDS Character Rates at or below 340 Mcsc       NO\n");
+    }
+
+    if(pEdid[5] & 0x40)
+    {
+        printf("Supports SCDC Read Request                                             YES\n");
+    }
+    else
+    {
+        printf("Supports SCDC Read Request                                              NO\n");
+    }
+
+    if(pEdid[5] & 0x80)
+    {
+        printf("Supports SCDC                                                           YES\n");
+    }
+    else
+    {
+        printf("Supports SCDC                                                           NO\n");
+    }
+
+    if(pEdid[6] & 0x01)
+    {
+        printf("Supports 10 bits/component Deep Color 4:2:0 Pixel Encoding              YES\n");
+    }
+    else
+    {
+        printf("Supports 10 bits/component Deep Color 4:2:0 Pixel Encoding              NO\n");
+    }
+
+    if(pEdid[6] & 0x02)
+    {
+        printf("Supports 12 bits/component Deep Color 4:2:0 Pixel Encoding              YES\n");
+    }
+    else
+    {
+        printf("Support 12 bits/component Deep Color 4:2:0 Pixel Encoding               NO\n");
+    }
+
+    if(pEdid[6] & 0x04)
+    {
+        printf("Supports 16 bits/component Deep Color 4:2:0 Pixel Encoding              YES\n");
+    }
+    else
+    {
+        printf("Support 16 bits/component Deep Color 4:2:0 Pixel Encoding               NO\n");
     }
 }
 
@@ -1583,8 +1766,26 @@ void ParseVSDB(char *pEdidInfo, int Length, int *SVD_mode, int *SVD_mode_num)
 
     if(video_present)
     {
-    	videoPayLoad += 1;
-        printf("VSDB image size:              %x\n", (pEdid[videoPayLoad] >> 3) & 0x03);	
+        unsigned int ImageSizeInfo = 0; 
+        videoPayLoad += 1;
+        ImageSizeInfo = (pEdid[videoPayLoad] >> 3) & 0x03;
+        //printf("VSDB image size:              %x\n", (pEdid[videoPayLoad] >> 3) & 0x03);
+        if(ImageSizeInfo == 0)
+        {
+            printf("No addition infomation for Image Size(0x15 and 0x16 in VESA E-EDID)\n");
+        }
+        else if(ImageSizeInfo == 1)
+        {
+            printf("Values in Image Size area(0x15 and 0x16 in VESA E-EDID) indicate correct aspect ratio but not the sizest\n");
+        }
+        else if(ImageSizeInfo == 2)
+        {
+            printf("Values in Image Size area(0x15 and 0x16 in VESA E-EDID) indicate correct sizes and round to nearest 1 cm\n");
+        }
+        else if(ImageSizeInfo == 3)
+        {
+            printf("Values in Image Size area(0x15 and 0x16 in VESA E-EDID) indicate correct sizes  in divided by 5 and round to nearest 5 cm\n");
+        }
 
         ThreeD_Present = (pEdid[videoPayLoad] >> 7) & 0x01;
         ThreeD_Multi_present = (pEdid[videoPayLoad] >> 5) & 0x03;

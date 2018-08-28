@@ -53,8 +53,8 @@ typedef enum _CBIOS_CEA_EXTENDED_BLOCK_TAG
 {
     VIDEO_CAPABILITY_DATA_BLOCK_TAG = 0x00,
     VENDOR_SPECIFIC_VIDEO_DATA_BLOCK_TAG,
-    RSVD_VESA_VIDEO_DISPLAY_DEVICE_INFO_DATA_BLOCK_TAG,
-    RSVD_VESA_VIDEO_DATA_BLOCK_TAG,
+    VESA_VIDEO_DISPLAY_DEVICE_DATA_BLOCK_TAG,
+    RSVD_VESA_VIDEO_TIMING_DATA_BLOCK_TAG,
     RSVD_HDMI_VIDEO_DATA_BLOCK,
     COLORIMETRY_DATA_BLOCK_TAG,
     HDR_STATIC_METADATA_DATA_BLOCK,
@@ -86,6 +86,7 @@ void DisplayCEA861(char *pEdidInfo);
 void ParseVIDEO_DATA_BLOCK(char *pEdidInfo,int Length,int * SVD_mode, int *SVD_mode_info);
 void ParseAUDIO_DATA_BLOCK(char *pEdidInfo,int Length);
 void ParseSpeakerAllocation(char *pEdidInfo, int Length);
+void ParseHFVSDB(char *pEdidInfo, int Length);
 void ParseVSDB(char *pEdidInfo, int Length, int *SVD_mode, int *SVD_mode_num);
 void ParseDetailedTiming(char *pEdidInfo,int Offset);
 
