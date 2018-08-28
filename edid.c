@@ -233,7 +233,7 @@ void DisplayEdidHeader(char *pEdidInfo)
 {
     printf("<---Header--->\n");
     int i = 0;
-    char *pEdid = pEdidInfo;
+    unsigned char *pEdid = pEdidInfo;
     for(i = 0; i < 8; i++)
     {
         printf("%02x ", (unsigned char)pEdid[i]);
@@ -271,7 +271,7 @@ void DisplayEdidVendorIdenti(char *pEdidInfo)
 void DisplayEdidEDIDversion(char *pEdidInfo)
 {
     printf("<---EDID Structer Version/Revision--->\n");
-    char *pEdid = pEdidInfo + VERSIONINDEX;
+    unsigned char *pEdid = pEdidInfo + VERSIONINDEX;
 
     printf("EDID Version:                 %d\n",pEdid[0]);
     printf("EDID Revision:                %d\n",pEdid[1]);
@@ -283,7 +283,7 @@ void DisplayEdidDisplayParams(char *pEdidInfo)
 {
     printf("<---Basic Dispaly Parameters and Features--->\n");
     
-    char *pEdid = pEdidInfo + DISPLAYPARAINDEX;
+    unsigned char *pEdid = pEdidInfo + DISPLAYPARAINDEX;
 
     if(pEdid[0]&0x80)
     {
@@ -426,7 +426,7 @@ void DisplayEdidColorCharacters(char *pEdidInfo)
 {
     printf("<---Color Characteristic--->\n");
 
-    char *pEdid = pEdidInfo + COLORCHARACTERINDEX;
+    unsigned char *pEdid = pEdidInfo + COLORCHARACTERINDEX;
 
     int Total;
     Total = pEdid[2]<<2 | (pEdid[0]>>6);
@@ -461,7 +461,7 @@ void DisplayEdidEstTimings(char *pEdidInfo)
 {
     printf("<---Established Timings--->\n");
 
-    char *pEdid = pEdidInfo + ESTABLISH_TIMINGS_INDEX;
+    unsigned char *pEdid = pEdidInfo + ESTABLISH_TIMINGS_INDEX;
     int umax = 0x01<<16; 
     int i;
     int bits = (pEdid[0]<<9) | (pEdid[1]<<1) | pEdid[2];
@@ -503,7 +503,7 @@ void DisplayEdidStdTimings(char *pEdidInfo)
 {
     printf("<---Standard Timing Identification--->\n");
 
-    char *pEdid = pEdidInfo + STANDARD_TIMINGS_INDEX;
+    unsigned char *pEdid = pEdidInfo + STANDARD_TIMINGS_INDEX;
     int Hor,Ver,Freq,Flag;
     int i;
     
@@ -536,19 +536,155 @@ void DisplayEdidStdTimings(char *pEdidInfo)
     printf("-------------------------------------\n");
 }
 
+void ParseDTLTiming(unsigned char *pEdid, int dtlTimIndex)
+{
+    unsigned int Clock;
+    unsigned int HActive,HBlank,HSyncOffset,HSyncPulseWidth;
+    unsigned int VActive,VBlank,VSyncOffset,VSyncPulseWidth;
+    unsigned int HImageSize,VImageSize,HBorder,VBorder;
+    int i,j;
+
+    Clock = pEdid[1]<<8 | pEdid[0];
+    
+    HActive = (pEdid[4]>>4)<<8 | pEdid[2];
+    HBlank = (pEdid[4]&0x0F)<<8 | pEdid[+3];
+        
+    VActive = (pEdid[7]>>4)<<8 | pEdid[5];
+    VBlank = (pEdid[7]&0x0F)<<8 | pEdid[6];
+
+    HSyncOffset = (pEdid[11]>>6)<<8 | pEdid[8];
+    HSyncPulseWidth = (pEdid[11]&0x30)<<4 | pEdid[9];
+    
+    VSyncOffset = (pEdid[11]&0x0C)<<2 | pEdid[10]>>4;
+    VSyncPulseWidth = (pEdid[11]&0x03)<<4 | (pEdid[10]&0x0F);
+
+    if(pEdid[17] & 0x80)
+    {
+        printf("Detailed Timing%d:             %d x %di  @  %.0fHz\n",dtlTimIndex+1,HActive,2*VActive,(float)Clock*10000/((HActive + HBlank)*(VActive + VBlank)));    
+    }
+    else
+    {
+        printf("Detailed Timing%d:             %d x %dp  @  %.0fHz\n",dtlTimIndex+1,HActive,VActive,(float)Clock*10000/((HActive + HBlank)*(VActive + VBlank)));   
+    } 
+
+    printf("Clock:                        %.3f MHz\n",(float)Clock/100);
+
+    printf("Horizontal Active:            %d pixels\nHorizontal Blanking:          %d pixels\nHorizontal Sync. Offset:      %d pixels\nHorizontal Sync Pulse Width:  %d pixels\n",HActive,HBlank,HSyncOffset,HSyncPulseWidth);
+    
+    printf("Vertical Active:              %d lines\nVertical Blanking:            %d lines\nVertical Sync. Offset:        %d lines\nVertical Sync Pulse Width:    %d lines\n",VActive,VBlank,VSyncOffset,VSyncPulseWidth);
+
+    HImageSize = (pEdid[14]>>4)<<8 | pEdid[12];
+    VImageSize = (pEdid[14]&0x0F)<<8 | pEdid[13];
+
+    printf("Horizontal Image Size:        %d mm\nVertical Image Size:          %d mm\n",HImageSize,VImageSize);
+
+    HBorder = pEdid[15];
+    VBorder = pEdid[16];
+            
+    printf("Horizontal Border:            %d mm\nVertical Border:              %d lines\n",HBorder,VBorder);
+
+
+    if(pEdid[17] & 0x80)
+    {
+        printf("Interlaced\n");
+    }
+    else
+    {
+        printf("Non-interlaced\n");
+    }
+    if(pEdid[17] & 0x60)
+    {
+        if((pEdid[17] & 0x60) == 0x20)   //01
+        {
+            if(pEdid[17] & 0x01)
+            {
+                printf("2-way interleaved stereo,right image on even lines");
+            }
+            else
+            {    
+                printf("field sequential stereo,right image when stereo sync. = 1");
+            }
+        }
+        else if((pEdid[17] & 0x60) == 0x40)  //10
+        {
+            if(pEdid[17] & 0x01)
+            {
+                printf("2-way interleaved stereo,left image on even lines");
+            }
+            else
+            {    
+                printf("field sequential stereo,left image when stereo sync. = 1");
+            }
+        }
+        else if((pEdid[17] & 0x60) == 0x60)  //11
+        {
+            if(pEdid[17] & 0x01)
+            {
+                printf("side-by-side interleaved stereo");
+            }
+            else  
+            {  
+                printf("4-way interleaved stereo");
+            }
+        }
+        printf("\n");
+    }
+    else
+    {
+        printf("Normal Display,No Stereo\n");
+    }
+            
+    if((pEdid[17] & 0x18) == 0x00)
+    {
+        printf("Analog Composite Syncs\n");
+        printf("Hsync signal polarity:        Negative");
+        printf("Vsync signal polarity:        Negative");
+    }
+    else if((pEdid[17] & 0x18) == 0x08)
+    {
+        printf("Bipolar Analog Composite Syncs\n");
+        printf("Hsync signal polarity:        Negative\n");
+        printf("Vsync signal polarity:        Negative\n");
+    }
+    else if((pEdid[17] & 0x18) == 0x10)
+    {
+        printf("Digtal Composite Syncs\n");
+        printf("Hsync signal polarity:        Negative\n");
+        printf("Vsync signal polarity:        Negative\n");
+    }
+    else if((pEdid[17] & 0x18) == 0x18)
+    {
+        printf("Digtal Separate Syncs\n");
+        if((pEdid[17] & 0x06) == 0x06)
+        {
+            printf("Hsync signal polarity:        Positive\n");
+            printf("Vsync signal polarity:        Positive\n");
+        }
+        else if((pEdid[17] & 0x06) == 0x04)
+        {
+            printf("Hsync signal polarity:        Negative\n");
+            printf("Vsync signal polarity:        Positive\n");
+        }
+        else if((pEdid[17] & 0x06) == 0x02)
+        {
+            printf("Hsync signal polarity:        Positive\n");
+            printf("Vsync signal polarity:        Negative\n");
+        }
+        else if((pEdid[17] & 0x06) == 0x00)
+        {
+            printf("Hsync signal polarity:        Negative\n");
+            printf("Vsync signal polarity:        Negative\n");
+        }
+    }
+    printf("\n");
+}
 
 void DisplayEdidDetailedTimings(char *pEdidInfo)
 {
     printf("<---Detailed Timing Descriptions--->\n");
-    char *pEdid = pEdidInfo + DETAILED_TIMINGS_INDEX;
-
-    int Clock;
-    int HActive,HBlank,HSyncOffset,HSyncPulseWidth;
-    int VActive,VBlank,VSyncOffset,VSyncPulseWidth;
-    int HImageSize,VImageSize,HBorder,VBorder;
+    unsigned char *pEdid = pEdidInfo + DETAILED_TIMINGS_INDEX;
     int i,j;
 
-    
     for(i = 0; i< 4; i++)
     {
         if((pEdid[i*18] == 0x00)&&(pEdid[1+i*18] == 0x00)&&
@@ -690,141 +826,7 @@ void DisplayEdidDetailedTimings(char *pEdidInfo)
         else if(!((pEdid[i*18] == 0x00)&&(pEdid[1+i*18] == 0x00)&&
                (pEdid[2+i*18] == 0x00)&&(pEdid[4+i*18] == 0x00)))
         {
-            Clock = pEdid[i*18+1]<<8 | pEdid[i*18+0];
-    
-            HActive = (pEdid[i*18+4]>>4)<<8 | pEdid[i*18+2];
-            HBlank = (pEdid[i*18+4]&0x0F)<<8 | pEdid[i*18+3];
-        
-
-    
-            VActive = (pEdid[i*18+7]>>4)<<8 | pEdid[i*18+5];
-            VBlank = (pEdid[i*18+7]&0x0F)<<8 | pEdid[i*18+6];
-
-            HSyncOffset = (pEdid[i*18+11]>>6)<<8 | pEdid[i*18+8];
-            HSyncPulseWidth = (pEdid[i*18+11]&0x30)<<4 | pEdid[i*18+9];
-    
-            VSyncOffset = (pEdid[i*18+11]&0x0C)<<2 | pEdid[i*18+10]>>4;
-            VSyncPulseWidth = (pEdid[i*18+11]&0x03)<<4 | (pEdid[i*18+10]&0x0F);
-
-            if(pEdid[i*18+17] & 0x80)
-            {
-                printf("Detailed Timing%d:             %d x %d  @  %.0fHz\n",i+1,HActive,2*VActive,(float)Clock*10000/((HActive + HBlank)*(VActive + VBlank)));    
-            }
-            else
-            {
-                printf("Detailed Timing%d:             %d x %d  @  %.0fHz\n",i+1,HActive,VActive,(float)Clock*10000/((HActive + HBlank)*(VActive + VBlank)));   
-            } 
-
-            printf("Clock:                        %.3f MHz\n",(float)Clock/100);
-
-            printf("Horizontal Active:            %d pixels\nHorizontal Blanking:          %d pixels\nHorizontal Sync. Offset:      %d pixels\nHorizontal Sync Pulse Width:  %d pixels\n",HActive,HBlank,HSyncOffset,HSyncPulseWidth);
-    
-            printf("Vertical Active:              %d lines\nVertical Blanking:            %d lines\nVertical Sync. Offset:        %d lines\nVertical Sync Pulse Width:    %d lines\n",VActive,VBlank,VSyncOffset,VSyncPulseWidth);
-
-            HImageSize = (pEdid[i*18+14]>>4)<<8 | pEdid[i*18+12];
-            VImageSize = (pEdid[i*18+14]&0x0F)<<8 | pEdid[i*18+13];
-
-            printf("Horizontal Image Size:        %d mm\nVertical Image Size:          %d mm\n",HImageSize,VImageSize);
-
-            HBorder = pEdid[i*18+15];
-            VBorder = pEdid[i*18+16];
-            
-            printf("Horizontal Border:            %d mm\nVertical Border:              %d lines\n",HBorder,VBorder);
-
-
-            if(pEdid[i*18+17] & 0x80)
-            {
-                printf("Interlaced\n");
-            }
-            else
-            {
-                printf("Non-interlaced\n");
-            }
-            if(pEdid[i*18+17] & 0x60)
-            {
-                if((pEdid[i*18+17] & 0x60) == 0x20)   //01
-                {
-                    if(pEdid[i*18+17] & 0x01)
-                    {
-                        printf("2-way interleaved stereo,right image on even lines");
-                    }
-                    else
-                    {    
-                        printf("field sequential stereo,right image when stereo sync. = 1");
-                    }
-                }
-                else if((pEdid[i*18+17] & 0x60) == 0x40)  //10
-                {
-                    if(pEdid[i*18+17] & 0x01)
-                    {
-                        printf("2-way interleaved stereo,left image on even lines");
-                    }
-                    else
-                    {    
-                        printf("field sequential stereo,left image when stereo sync. = 1");
-                    }
-                }
-                else if((pEdid[i*18+17] & 0x60) == 0x60)  //11
-                {
-                    if(pEdid[i*18+17] & 0x01)
-                    {
-                        printf("side-by-side interleaved stereo");
-                    }
-                    else  
-                    {  
-                        printf("4-way interleaved stereo");
-                    }
-                }
-                printf("\n");
-            }
-            else
-            {
-                printf("Normal Display,No Stereo\n");
-            }
-            
-            if((pEdid[i*18+17] & 0x18) == 0x00)
-            {
-                printf("Analog Composite Syncs\n");
-                printf("Hsync signal polarity:        Negative");
-                printf("Vsync signal polarity:        Negative");
-            }
-            else if((pEdid[i*18+17] & 0x18) == 0x08)
-            {
-                printf("Bipolar Analog Composite Syncs\n");
-                printf("Hsync signal polarity:        Negative\n");
-                printf("Vsync signal polarity:        Negative\n");
-            }
-            else if((pEdid[i*18+17] & 0x18) == 0x10)
-            {
-                printf("Digtal Composite Syncs\n");
-                printf("Hsync signal polarity:        Negative\n");
-                printf("Vsync signal polarity:        Negative\n");
-            }
-            else if((pEdid[i*18+17] & 0x18) == 0x18)
-            {
-                printf("Digtal Separate Syncs\n");
-                if((pEdid[i*18+17] & 0x06) == 0x06)
-                {
-                    printf("Hsync signal polarity:        Positive\n");
-                    printf("Vsync signal polarity:        Positive\n");
-                }
-                else if((pEdid[i*18+17] & 0x06) == 0x04)
-                {
-                    printf("Hsync signal polarity:        Negative\n");
-                    printf("Vsync signal polarity:        Positive\n");
-                }
-                else if((pEdid[i*18+17] & 0x06) == 0x02)
-                {
-                    printf("Hsync signal polarity:        Positive\n");
-                    printf("Vsync signal polarity:        Negative\n");
-                }
-                else if((pEdid[i*18+17] & 0x06) == 0x00)
-                {
-                    printf("Hsync signal polarity:        Negative\n");
-                    printf("Vsync signal polarity:        Negative\n");
-                }
-            }
-            printf("\n");
+            ParseDTLTiming(&pEdid[i*18], i);
         }
     }
     printf("-------------------------------------\n");
@@ -834,7 +836,7 @@ void DisplayEdidExtFlagandChecksum(char *pEdidInfo)
 {
     printf("<---EDID Extension Flag And Checksum--->\n");
 
-    char *pEdid = pEdidInfo + EXTENSION_FLAG_INDEX;
+    unsigned char *pEdid = pEdidInfo + EXTENSION_FLAG_INDEX;
     TotalBlocks = pEdid[0] + 1;
     printf("Extension Flag:               %02X\n",pEdid[0]);
     printf("Checksum:                     %02X\n",pEdid[1]);
@@ -931,7 +933,7 @@ void DisplayCEA861(char *pEdidInfo)
     int i = 0;
     int BlockIndex = 0;
     int DetailedTimingOffset = 0;
-    char *pEdid,*pEdid2;
+    unsigned char *pEdid,*pEdid2;
     int Len = 0;
     int ExtTag = 0;
     int SVD = 0;
@@ -1050,320 +1052,185 @@ void DisplayCEA861(char *pEdidInfo)
             else if(((pEdid[i]>>5) & 0x07) == CEA_EXTENDED_BLOCK_TAG)
             {
                 unsigned int j = 0;
-	      		Len = pEdid[i++] & 0x1F;
-			    ExtTag = pEdid[i];
+                Len = pEdid[i++] & 0x1F;
+                ExtTag = pEdid[i];
 
-				if(ExtTag == YCBCR420_VIDEO_DATA_BLOCK)
-				{
-					printf("<---YCBCR420 VIDEO DATA BLOCK,Only support 420 format----> \n");
-				    for (j = 0; j < Len - 1; j++)
-				    {
-				        SVD = pEdid[i + 1 + j];
-				        status = GetFmtIdxFromSVD(SVD, &FormatIndex);
-				        if (!status)
-				        {
-				            continue;
-				        }                    
-						PrintCEAModeInfo(FormatIndex, "");						
-						
-				    }
-					printf("-------------------------------------\n");
-					
-				}
-				else if(ExtTag == YCBCR420_CAP_MAP_DATA_BLOCK)
-				{
-				    unsigned char YCbCr420CapMap = 0;
-				    unsigned char Step = 0;
-					unsigned char j = 0,k = 0;
+                if(ExtTag == YCBCR420_VIDEO_DATA_BLOCK)
+                {
+                    printf("<---YCBCR420 VIDEO DATA BLOCK,Only support 420 format----> \n");
+                    for (j = 0; j < Len - 1; j++)
+                    {
+                        SVD = pEdid[i + 1 + j];
+                        status = GetFmtIdxFromSVD(SVD, &FormatIndex);
+                        if (!status)
+                        {
+                            continue;
+                        }                    
+                        PrintCEAModeInfo(FormatIndex, "");
+                    }
+
+                    printf("-------------------------------------\n");
+                }
+                else if(ExtTag == YCBCR420_CAP_MAP_DATA_BLOCK)
+                {
+                    unsigned char YCbCr420CapMap = 0;
+                    unsigned char Step = 0;
+                    unsigned char j = 0,k = 0;
 
                     printf("<----YCBCR 420 CAP Map Data Block --->\n");
-				    if (Len == 1)
-				    {
-				        printf("All Supported SVD Mode support 420 format !!!!!\n");
-				    }
-				    else
-				    {
-				        printf("All those mode support 420 format and RGB format \n");
-				        for (k = 0; k < Len - 1; k++)
-				        {
-				            YCbCr420CapMap = pEdid[i + 1 + k];
+                    if (Len == 1)
+                    {
+                        printf("All Supported SVD Mode support 420 format !!!!!\n");
+                    }
+                    else
+                    {
+                        printf("All those mode support 420 format and other format \n");
+                        for (k = 0; k < Len - 1; k++)
+                        {
+                            YCbCr420CapMap = pEdid[i + 1 + k];
 
-				            for (j = 0; j < 8; j++)
-				            {
-				                if (((YCbCr420CapMap >> j) & 0x1) && (j + Step < SVD_num))
-				                {
-				                    SVD = SVD_mode[j+Step];
-				                    status = GetFmtIdxFromSVD(SVD, &FormatIndex);
-				                    if (!status)
-				                    {
-				                        continue;
-				                    }
-                                    PrintCEAModeInfo(FormatIndex, NULL);
-				                }
-				            }
-				            Step += 8;
-				        }
-				    }
-					printf("-------------------------------------\n");
-				}
-				else if(ExtTag == COLORIMETRY_DATA_BLOCK_TAG)
-				{
-				    printf("<----CEA Colorimetry Data Block ---->\n");
-				    if(Len != 3)
-				    {
-				        printf("ParseCEAExtBlock:Colorimetry data block lenght error \n");
-				    }
-				    else
-				    {
-                        if(pEdid[i+1] & 0x01)
-                       	{
-							printf("Monitor support xvYCC601 \n");
+                            for (j = 0; j < 8; j++)
+                            {
+                                if (((YCbCr420CapMap >> j) & 0x1) && (j + Step < SVD_num))
+                                {
+                                    SVD = SVD_mode[j+Step];
+                                    status = GetFmtIdxFromSVD(SVD, &FormatIndex);
+                                    if (!status)
+                                    {
+                                        continue;
+                                    }
+                                    PrintCEAModeInfo(FormatIndex, "");
+                                }
+                            }
+                            Step += 8;
                         }
-						if(pEdid[i+1] & 0x02)
-                       	{
-							printf("Monitor support xvYCC709 \n");
-                        }
-						if(pEdid[i+1] & 0x04)
-                       	{
-							printf("Monitor support sYCC601 \n");
-                        }
-						if(pEdid[i+1] & 0x08)
-                       	{
-							printf("Monitor support AdobeYCC601 \n");
-                        }
-					    if(pEdid[i+1] & 0x10)
-                       	{
-							printf("Monitor support AdobeRGB \n");
-                        }
-						if(pEdid[i+1] & 0x20)
-                       	{
-							printf("Monitor support BT2020cYcc \n");
-                        }
-						if(pEdid[i+1] & 0x40)
-                       	{
-							printf("Monitor support BT2020Ycc  \n");
-                        }
-						if(pEdid[i+1] & 0x80)
-                       	{
-							printf("Monitor support BT2020RGB \n");
-                        }
-
-						printf("Monitor MD0-MD3 is 0x%x \n",pEdid[i+2] & 0xf);
-						printf("-------------------------------------\n");
-				    }
-				}
-					
-				else if(ExtTag == HDR_STATIC_METADATA_DATA_BLOCK)
-				{
-				    printf("<----HDR STATIC METADATA DATA BLOCK---->\n");
-				    if(Len < 3 || Len > 6)
-				    {
-				        printf("ParseCEAExtBlock:hdr medata data block lenght error ");
-				    }
-				    else
-				    {
+                    }
+                    printf("-------------------------------------\n");
+                }
+                else if(ExtTag == COLORIMETRY_DATA_BLOCK_TAG)
+                {
+                    printf("<----CEA Colorimetry Data Block ---->\n");
+                    if(Len != 3)
+                    {
+                        printf("ParseCEAExtBlock:Colorimetry data block lenght error \n");
+                    }
+                    else
+                    {
                         if(pEdid[i+1] & 0x01)
                         {
-                        	printf("Monitor support Traditional gamma,SDR Luminance Range\n");
+                            printf("Monitor support xvYCC601 \n");
                         }
-						if(pEdid[i+1] & 0x02)
+                        if(pEdid[i+1] & 0x02)
                         {
-                        	printf("Monitor support Traditional gamma,HDR Luminance Range\n");
+                            printf("Monitor support xvYCC709 \n");
                         }
                         if(pEdid[i+1] & 0x04)
                         {
-                        	printf("Monitor support SMPTE ST 2084\n");
+                            printf("Monitor support sYCC601 \n");
                         }
-						if(pEdid[i+1] & 0x10)
+                        if(pEdid[i+1] & 0x08)
                         {
-                        	printf("Monitor support Future EOTF\n");
+                            printf("Monitor support AdobeYCC601 \n");
+                        }
+                        if(pEdid[i+1] & 0x10)
+                        {
+                            printf("Monitor support AdobeRGB \n");
+                        }
+                        if(pEdid[i+1] & 0x20)
+                        {
+                            printf("Monitor support BT2020cYcc \n");
+                        }
+                        if(pEdid[i+1] & 0x40)
+                        {
+                            printf("Monitor support BT2020Ycc  \n");
+                        }
+                        if(pEdid[i+1] & 0x80)
+                        {
+                            printf("Monitor support BT2020RGB \n");
                         }
 
-						if(pEdid[i+1] & 0x01)
-					    {
-					    	printf("Monitor support Static Metadata Type 1 \n");
-						}
-						if(Len == 4)
-				        {
-				            printf("Monitor Desired content Max Lum Data is 0x%x\n",pEdid[i +3]);
-				        }
-				        else if(Len == 5)
-				        {
-				             printf("Monitor Desired content Max Lum Data is 0x%x\n",pEdid[i + 3]);
-     					     printf("Monitor Desired content Max Frame-average Lum Data is 0x%x\n",pEdid[i + 4]);
-				        }
-				        else
-				        {
-							printf("Monitor Desired content Max Lum Data is 0x%x\n",pEdid[i + 3]);
-                            printf("Monitor Desired content Max Frame-average Lum Data is 0x%x\n",pEdid[i + 4]);
-							printf("Monitor Desired content Min Lum Data is 0x%x\n",pEdid[i + 5]);
+                        printf("Monitor MD0-MD3 is 0x%x \n",pEdid[i+2] & 0xf);
+                        printf("-------------------------------------\n");
+                    }
+                }
 
-				        }
-						printf("-------------------------------------\n");
-				    }
-				}
-	            i += Len;
-	        }
+                else if(ExtTag == HDR_STATIC_METADATA_DATA_BLOCK)
+                {
+                    printf("<----HDR STATIC METADATA DATA BLOCK---->\n");
+                    if(Len < 3 || Len > 6)
+                    {
+                        printf("ParseCEAExtBlock:hdr medata data block lenght error ");
+                    }
+                    else
+                    {
+                        if(pEdid[i+1] & 0x01)
+                        {
+                            printf("Monitor support Traditional gamma,SDR Luminance Range\n");
+                        }
+                        if(pEdid[i+1] & 0x02)
+                        {
+                            printf("Monitor support Traditional gamma,HDR Luminance Range\n");
+                        }
+                        if(pEdid[i+1] & 0x04)
+                        {
+                            printf("Monitor support SMPTE ST 2084\n");
+                        }
+                        if(pEdid[i+1] & 0x10)
+                        {
+                            printf("Monitor support Future EOTF\n");
+                        }
+
+                        if(pEdid[i+1] & 0x01)
+                        {
+                            printf("Monitor support Static Metadata Type 1 \n");
+                        }
+                        if(Len == 4)
+                        {
+                            printf("Monitor Desired content Max Lum Data is 0x%x\n",pEdid[i +3]);
+                        }
+                        else if(Len == 5)
+                        {
+                            printf("Monitor Desired content Max Lum Data is 0x%x\n",pEdid[i + 3]);
+                            printf("Monitor Desired content Max Frame-average Lum Data is 0x%x\n",pEdid[i + 4]);
+                        }
+                        else
+                        {
+                            printf("Monitor Desired content Max Lum Data is 0x%x\n",pEdid[i + 3]);
+                            printf("Monitor Desired content Max Frame-average Lum Data is 0x%x\n",pEdid[i + 4]);
+                            printf("Monitor Desired content Min Lum Data is 0x%x\n",pEdid[i + 5]);
+
+                        }
+                        printf("-------------------------------------\n");
+                    }
+                }
+                i += Len;
+            }
             else
             {
                 Len = pEdid[i++] & 0x1F;
     
                 i += Len;
             }
-	    }
+        }
         ParseDetailedTiming(pEdid,DetailedTimingOffset);
     }
 }
 void ParseDetailedTiming(char *pEdidInfo,int Offset)
-{ 
-    int Clock;
-    int HActive,HBlank,HSyncOffset,HSyncPulseWidth;
-    int VActive,VBlank,VSyncOffset,VSyncPulseWidth;
-    int HImageSize,VImageSize,HBorder,VBorder;
+{
     int i = Offset;
-    int j = 0;
-    char *pEdid = pEdidInfo;
+    int dtlIndex = 0;
+    unsigned char *pEdid = pEdidInfo;
     while((i+18) < 128)
     {
-        Clock = pEdid[i+1]<<8 | pEdid[i];
-        if(Clock == 0) break;
-        HActive = (pEdid[i+4]>>4)<<8 | pEdid[i+2];
-        HBlank = (pEdid[i+4]&0x0F)<<8 | pEdid[i+3];
-        
-        VActive = (pEdid[i+7]>>4)<<8 | pEdid[i+5];
-        VBlank = (pEdid[i+7]&0x0F)<<8 | pEdid[i+6];
-
-        HSyncOffset = (pEdid[i+11]>>6)<<8 | pEdid[i+8];
-        HSyncPulseWidth = (pEdid[i+11]&0x30)<<4 | pEdid[i+9];
-    
-        VSyncOffset = (pEdid[i+11]&0x0C)<<2 | pEdid[i+10]>>4;
-        VSyncPulseWidth = (pEdid[i+11]&0x03)<<4 | (pEdid[i+10]&0x0F);
-    
-        if(pEdid[i+17] & 0x80)
-        {
-            printf("Detailed Timing%d:             %d x %d  @  %.0f Hz\n",++j,HActive,2*VActive,(float)Clock*10000/((HActive + HBlank)*(VActive + VBlank)));
-        }
-        else
-        {
-            printf("Detailed Timing%d:             %d x %d  @  %.0f Hz\n",++j,HActive,VActive,(float)Clock*10000/((HActive + HBlank)*(VActive + VBlank)));
-        }    
-
-        printf("Clock:                        %.3f MHz\n",(float)Clock/100);
-
-        printf("Horizontal Active:            %d pixels\nHorizontal Blanking:          %d pixels\nHorizontal Sync. Offset:      %d pixels\nHorizontal Sync Pulse Width:  %d pixels\n",HActive,HBlank,HSyncOffset,HSyncPulseWidth);
-    
-        printf("Vertical Active:              %d lines\nVertical Blanking:            %d lines\nVertical Sync. Offset:        %d lines\nVertical Sync Pulse Width:    %d lines\n",VActive,VBlank,VSyncOffset,VSyncPulseWidth);
-
-        HImageSize = (pEdid[i+14]>>4)<<8 | pEdid[i+12];
-        VImageSize = (pEdid[i+14]&0x0F)<<8 | pEdid[i+13];
-
-        printf("Horizontal Image Size:        %d mm\nVertical Image Size:          %d mm\n",HImageSize,VImageSize);
-
-        HBorder = pEdid[i+15];
-        VBorder = pEdid[i+16];
-            
-        printf("Horizontal Border:            %d mm\nVertical Border:              %d lines\n",HBorder,VBorder);
-
-        if(pEdid[i+17] & 0x80)
-        {
-            printf("Interlaced\n");
-        }
-        else
-        {
-            printf("Non-interlaced\n");
-        }
-        if(pEdid[i+17] & 0x60)
-        {
-            if((pEdid[i+17] & 0x60) == 0x20)   //01
-            {
-                if(pEdid[i+17] & 0x01)
-                {
-                    printf("2-way interleaved stereo,right image on even lines");
-                }
-                else    
-                {
-                    printf("field sequential stereo,right image when stereo sync. = 1");
-                }
-            }
-            else if((pEdid[i+17] & 0x60) == 0x40)  //10
-            {
-                if(pEdid[i+17] & 0x01)
-                {
-                    printf("2-way interleaved stereo,left image on even lines");
-                }
-                else    
-                {
-                    printf("field sequential stereo,left image when stereo sync. = 1");
-                }
-            }
-            else if((pEdid[i+17] & 0x60) == 0x60)  //11
-            {
-                if(pEdid[i+17] & 0x01)
-                {
-                    printf("side-by-side interleaved stereo");
-                }
-                else
-                {
-                    printf("4-way interleaved stereo");
-                }
-            }
-            printf("\n");
-        }
-        else
-        {
-            printf("Normal Display,No Stereo\n");
-        }
-            
-        if((pEdid[i+17] & 0x18) == 0x00)
-        {
-            printf("Analog Composite Syncs\n");
-            printf("Hsync signal polarity:        Negative");
-            printf("Vsync signal polarity:        Negative");
-        }
-        else if((pEdid[i+17] & 0x18) == 0x08)
-        {
-            printf("Bipolar Analog Composite Syncs\n");
-            printf("Hsync signal polarity:        Negative\n");
-            printf("Vsync signal polarity:        Negative\n");
-        }
-        else if((pEdid[i+17] & 0x18) == 0x10)
-        {
-            printf("Digtal Composite Syncs\n");
-            printf("Hsync signal polarity:        Negative\n");
-            printf("Vsync signal polarity:        Negative\n");
-        }
-        else if((pEdid[i+17] & 0x18) == 0x18)
-        {
-            printf("Digtal Separate Syncs\n");
-            if((pEdid[i+17] & 0x06) == 0x06)
-            {
-                printf("Hsync signal polarity:        Positive\n");
-                printf("Vsync signal polarity:        Positive\n");
-            }
-            else if((pEdid[i+17] & 0x06) == 0x04)
-            {
-                printf("Hsync signal polarity:        Negative\n");
-                printf("Vsync signal polarity:        Positive\n");
-            }
-            else if((pEdid[i+17] & 0x06) == 0x02)
-            {
-                printf("Hsync signal polarity:        Positive\n");
-                printf("Vsync signal polarity:        Negative\n");
-            }
-            else if((pEdid[i+17] & 0x06) == 0x00)
-            {
-                printf("Hsync signal polarity:        Negative\n");
-                printf("Vsync signal polarity:        Negative\n");
-            }
-        }
-        printf("\n");
+        ParseDTLTiming(&pEdid[i], dtlIndex);
         i += 18;
+        dtlIndex++;
     }
 }
 void ParseAUDIO_DATA_BLOCK(char *pEdidInfo,int Length)
 {
     int i = 0,j = 0, Len = Length;
-    char *pEdid = pEdidInfo;
+    unsigned char *pEdid = pEdidInfo;
     int AudioFormatCode = 0;
     int MaxChannelNum = 0;
     int umax;
@@ -1675,10 +1542,10 @@ void ParseVSDB(char *pEdidInfo, int Length, int *SVD_mode, int *SVD_mode_num)
             }
         }
 
-	 //HDMI_Video_present
+        //HDMI_Video_present
         if(pEdid[7] & 0x20)
         {  
-	     video_present = 1;
+            video_present = 1;
         }
 
         //supported content type
@@ -1713,104 +1580,103 @@ void ParseVSDB(char *pEdidInfo, int Length, int *SVD_mode, int *SVD_mode_num)
 
     if(video_present)
     {
-    	 videoPayLoad += 1;
-	 printf("VSDB image size:				%x\n", (pEdid[videoPayLoad] >> 3) & 0x03);	
+    	videoPayLoad += 1;
+        printf("VSDB image size:              %x\n", (pEdid[videoPayLoad] >> 3) & 0x03);	
 
-	 ThreeD_Present = (pEdid[videoPayLoad] >> 7) & 0x01;
+        ThreeD_Present = (pEdid[videoPayLoad] >> 7) & 0x01;
         ThreeD_Multi_present = (pEdid[videoPayLoad] >> 5) & 0x03;
             
         VicLen = (pEdid[videoPayLoad + 1] >> 5) & 0x07;
         ThreeDLen = pEdid[videoPayLoad + 1] & 0x1F;
-	 ThreeDPayLoad = videoPayLoad + 1 + VicLen + 1;
-	 ThreeDPos = ThreeDPayLoad;
+        ThreeDPayLoad = videoPayLoad + 1 + VicLen + 1;
+        ThreeDPos = ThreeDPayLoad;
             
-	 if(VicLen > 0)
-	 {
-	     printf("VSDB mode list:\n");
+        if(VicLen > 0)
+        {
+            printf("VSDB mode list:\n");
             for(j = 0; j < VicLen; j++)
             {
                 FormatIndex = pEdid[videoPayLoad + 2 + j] + CBIOS_HDMI_NORMAL_VIC_COUNTS;
-		  SVD_mode[*SVD_mode_num] = FormatIndex;
-		  (*SVD_mode_num)++;
-		  PrintCEAModeInfo(FormatIndex, "");
+                SVD_mode[*SVD_mode_num] = FormatIndex;
+                (*SVD_mode_num)++;
+                PrintCEAModeInfo(FormatIndex, "");
             }
-	 }
+        }
 
-	 if(ThreeD_Present)
-	 {
-	 	printf("3D mode list:\n");
-		if(ThreeD_Multi_present == 1 || ThreeD_Multi_present == 2)
-		{
-			char ThreeD_struct[256] = "";
-			unsigned short treedStruct = *(unsigned short *)(&pEdid[ThreeDPayLoad]);
-			if(treedStruct & 0x0001)
-			{
-				strcat(ThreeD_struct, "Frame packing/");
-			}
-			if(treedStruct & 0x0040)
-			{
-				strcat(ThreeD_struct, "Top-and-Bottom/");
-			}
-			if(treedStruct & 0x0100)
-			{
-				strcat(ThreeD_struct, "Side-by-Side(half)");
-			}
-			ThreeDPayLoad += 2;
+        if(ThreeD_Present)
+        {
+            //printf("3D mode list:\n");
+            if(ThreeD_Multi_present == 1 || ThreeD_Multi_present == 2)
+            {
+                char ThreeD_struct[256] = "";
+                unsigned short treedStruct = *(unsigned short *)(&pEdid[ThreeDPayLoad]);
+                if(treedStruct & 0x0001)
+                {
+                    strcat(ThreeD_struct, "Frame packing/");
+                }
+                if(treedStruct & 0x0040)
+                {
+                    strcat(ThreeD_struct, "Top-and-Bottom/");
+                }
+                if(treedStruct & 0x0100)
+                {
+                    strcat(ThreeD_struct, "Side-by-Side(half)");
+                }
+                ThreeDPayLoad += 2;
 
-			if(ThreeD_Multi_present == 1)
-			{
-				for(j = 0; j < 16 && j < *SVD_mode_num; j++)
-				{
-					FormatIndex = SVD_mode[j];
-					PrintCEAModeInfo(FormatIndex, ThreeD_struct);
-				}
-			}
-			else if(ThreeD_Multi_present == 2)
-			{
-				unsigned int umax = 0x01;
-				for(j = 0; j < 16; j++)
-				{
-					if(pEdid[ThreeDPayLoad] & umax)
-					{
-						FormatIndex = SVD_mode[j];
-						PrintCEAModeInfo(FormatIndex, ThreeD_struct);
-					}
-					umax = umax << 1;
-				}
-				ThreeDPayLoad += 2;
-			}
-		}
+                if(ThreeD_Multi_present == 1)
+                {
+                    for(j = 0; j < 16 && j < *SVD_mode_num; j++)
+                    {
+                        FormatIndex = SVD_mode[j];
+                        PrintCEAModeInfo(FormatIndex, ThreeD_struct);
+                    }
+                }
+                else if(ThreeD_Multi_present == 2)
+                {
+                    unsigned int umax = 0x01;
+                    for(j = 0; j < 16; j++)
+                    {
+                        if(pEdid[ThreeDPayLoad] & umax)
+                        {
+                            FormatIndex = SVD_mode[j];
+                            PrintCEAModeInfo(FormatIndex, ThreeD_struct);
+                        }
+                        umax = umax << 1;
+                    }
+                    ThreeDPayLoad += 2;
+                }
+            }
 
-			//printf("ThreeDPayLoad - ThreeDPos = %d, ThreeDLen = %d\n", ThreeDPayLoad - ThreeDPos, ThreeDLen);
-		if(ThreeDPayLoad - ThreeDPos < ThreeDLen)
-		{
-			unsigned int vicOrder = 0, vic3DStruct = 0;
-			char *vic3DStructName = "";
-			for(j = ThreeDPayLoad; j < Len; j++)
-			{
-				vicOrder = (pEdid[ThreeDPayLoad] >> 4) & 0x0F;
-				vic3DStruct = pEdid[ThreeDPayLoad] & 0x0F;
+        	//printf("ThreeDPayLoad - ThreeDPos = %d, ThreeDLen = %d\n", ThreeDPayLoad - ThreeDPos, ThreeDLen);
+            if(ThreeDPayLoad - ThreeDPos < ThreeDLen)
+            {
+                unsigned int vicOrder = 0, vic3DStruct = 0;
+                char *vic3DStructName = "";
+                for(j = ThreeDPayLoad; j < Len; j++)
+                {
+                    vicOrder = (pEdid[ThreeDPayLoad] >> 4) & 0x0F;
+                    vic3DStruct = pEdid[ThreeDPayLoad] & 0x0F;
 
-				if(vic3DStruct == 0)
-				{
-					vic3DStructName = "Frame packing";
-				}
-				else if(vic3DStruct == 6)
-				{
-					vic3DStructName = "Top-and-Bottom";
-				}
-				else if(vic3DStruct == 8)
-				{
-					vic3DStructName = "Side-by-Side(half)";
-				}
-				FormatIndex = SVD_mode[vicOrder];
-				PrintCEAModeInfo(FormatIndex, vic3DStructName);
-				
-				j += 2;
-			}
-		}
-	 }
-	  
+                    if(vic3DStruct == 0)
+                    {
+                        vic3DStructName = "Frame packing";
+                    }
+                    else if(vic3DStruct == 6)
+                    {
+                        vic3DStructName = "Top-and-Bottom";
+                    }
+                    else if(vic3DStruct == 8)
+                    {
+                        vic3DStructName = "Side-by-Side(half)";
+                    }
+                    FormatIndex = SVD_mode[vicOrder];
+                    PrintCEAModeInfo(FormatIndex, vic3DStructName);
+
+                    j  += 2;
+                }
+            }
+        } 
     }
 
 }
