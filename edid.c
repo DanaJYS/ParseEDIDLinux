@@ -545,7 +545,7 @@ void DisplayEdidStdTimings(char *pEdidInfo)
     
     for(i = 0; i < 16; i=i+2)
     {
-        if((pEdid[i] ^ 1) | (pEdid[i+1] ^ 1))
+        if(((pEdid[i] ^ 1) | (pEdid[i+1] ^ 1)) && ((pEdid[i] ^ 0 ) | (pEdid[i+1] ^ 0)))
         {
             Hor = (pEdid[i]+31)*8;
             Flag = pEdid[i+1]>>6;
@@ -676,8 +676,8 @@ void ParseDTLTiming(unsigned char *pEdid, int dtlTimIndex)
     if((pEdid[17] & 0x18) == 0x00)
     {
         printf("Analog Composite Syncs\n");
-        printf("Hsync signal polarity:        Negative");
-        printf("Vsync signal polarity:        Negative");
+        printf("Hsync signal polarity:        Negative\n");
+        printf("Vsync signal polarity:        Negative\n");
     }
     else if((pEdid[17] & 0x18) == 0x08)
     {
@@ -1001,7 +1001,8 @@ void DisplayCEA861(char *pEdidInfo)
         {
             continue;
         }
-                if(pEdid[3] & 0x80)
+
+        if(pEdid[3] & 0x80)
         {
             printf("IT Underscan                  Supported\n");
         }
