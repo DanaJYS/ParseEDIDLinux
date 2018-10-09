@@ -1847,6 +1847,7 @@ void ParseVSDB(char *pEdidInfo, int Length, int *SVD_mode, int *SVD_mode_num)
         if(ThreeD_Present)
         {
             //printf("3D mode list:\n");
+            printf("Supports 3D video modes:      YES\n");
             if(ThreeD_Multi_present == 1 || ThreeD_Multi_present == 2)
             {
                 char ThreeD_struct[256] = "";
@@ -1917,7 +1918,11 @@ void ParseVSDB(char *pEdidInfo, int Length, int *SVD_mode, int *SVD_mode_num)
                     j  += 2;
                 }
             }
-        } 
+        }
+        else
+        {
+            printf("Supports 3D video modes:      NO\n");
+        }
     }
 
 }
